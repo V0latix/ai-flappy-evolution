@@ -30,7 +30,7 @@ const PIPE_WIDTH = 74;
 const PIPE_SPEED = 2.85;
 const GRAVITY = 0.42;
 const FLAP = -7.2;
-const INPUTS = 5;
+const INPUTS = 6;
 const HIDDEN = 7;
 const GENOME_LENGTH = INPUTS * HIDDEN + HIDDEN + HIDDEN + 1;
 
@@ -142,8 +142,15 @@ function nextPipeFor(bird) {
   return pipes.find((pipe) => pipe.x + PIPE_WIDTH > bird.x - bird.radius) || pipes[0];
 }
 
+function followingPipeFor(bird) {
+  const nextPipeIndex = pipes.findIndex((pipe) => pipe.x + PIPE_WIDTH > bird.x - bird.radius);
+  if (nextPipeIndex === -1) return pipes[0];
+  return pipes[nextPipeIndex + 1] || pipes[nextPipeIndex];
+}
+
 function birdInputs(bird) {
   const pipe = nextPipeFor(bird);
+  const followingPipe = followingPipeFor(bird);
   const gap = pipeGap();
   return [
     bird.y / (HEIGHT - GROUND),
@@ -151,6 +158,7 @@ function birdInputs(bird) {
     (pipe.x + PIPE_WIDTH - bird.x) / WIDTH,
     (pipe.gapY - gap / 2 - bird.y) / HEIGHT,
     (pipe.gapY + gap / 2 - bird.y) / HEIGHT,
+    (followingPipe.gapY - bird.y) / HEIGHT,
   ];
 }
 

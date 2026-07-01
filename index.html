@@ -102,16 +102,18 @@
           <div class="panel-section explanation">
             <h2>Comment les generations apprennent</h2>
             <p>
-              Chaque bird commence avec son propre petit reseau neuronal. Le reseau recoit cinq
+              Chaque bird commence avec son propre petit reseau neuronal. Le reseau recoit six
               valeurs : la hauteur du bird, sa vitesse verticale, la distance jusqu'au prochain
               tuyau, la distance jusqu'au haut du passage et la distance jusqu'au bas du passage.
+              Il recoit aussi la distance verticale jusqu'au centre du passage du tuyau suivant.
               Il renvoie une seule decision : sauter ou continuer a tomber.
             </p>
             <p>
               Le passage des tuyaux change la hauteur disponible entre le tuyau du haut et celui du
               bas. L'espacement des tuyaux change la distance horizontale avant le prochain obstacle.
               Modifier ces valeurs redemarre l'entrainement pour que toute la generation apprenne
-              sur les memes regles.
+              sur les memes regles. Le sixieme noeud aide les birds a anticiper le passage qui
+              arrive apres l'obstacle actuel.
             </p>
             <p>
               Pendant une generation, chaque bird vivant gagne du fitness en survivant, en restant

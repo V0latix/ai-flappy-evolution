@@ -9,6 +9,7 @@ The app runs entirely in the browser:
 - Fitness scoring, elite preservation, crossover, and mutation
 - Generation-by-generation training
 - Live metrics and a neural-network visualizer for the current champion
+- Six neural-network inputs, including the distance to the following pipe gap
 
 ## Run locally
 
