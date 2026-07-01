@@ -18,6 +18,8 @@ const ui = {
   speedValue: document.querySelector("#speedValue"),
   population: document.querySelector("#population"),
   mutation: document.querySelector("#mutation"),
+  pipeGap: document.querySelector("#pipeGap"),
+  pipeSpacing: document.querySelector("#pipeSpacing"),
 };
 
 const WIDTH = 960;
@@ -25,8 +27,6 @@ const HEIGHT = 560;
 const GROUND = 62;
 const BIRD_X = 165;
 const PIPE_WIDTH = 74;
-const PIPE_GAP = 150;
-const PIPE_SPACING = 245;
 const PIPE_SPEED = 2.85;
 const GRAVITY = 0.42;
 const FLAP = -7.2;
@@ -103,19 +103,30 @@ function makeBird(genome = createGenome()) {
   };
 }
 
+function pipeGap() {
+  return Number(ui.pipeGap.value);
+}
+
+function pipeSpacing() {
+  return Number(ui.pipeSpacing.value);
+}
+
 function resetPipes() {
   pipes = [];
-  for (let i = 0; i < 5; i += 1) {
-    pipes.push(createPipe(WIDTH + 220 + i * PIPE_SPACING));
+  const spacing = pipeSpacing();
+  const pipeCount = Math.ceil(WIDTH / spacing) + 4;
+  for (let i = 0; i < pipeCount; i += 1) {
+    pipes.push(createPipe(WIDTH + 220 + i * spacing));
   }
 }
 
 function createPipe(x) {
+  const gap = pipeGap();
   const margin = 92;
-  const usableHeight = HEIGHT - GROUND - PIPE_GAP - margin * 2;
+  const usableHeight = Math.max(1, HEIGHT - GROUND - gap - margin * 2);
   return {
     x,
-    gapY: margin + PIPE_GAP / 2 + Math.random() * usableHeight,
+    gapY: margin + gap / 2 + Math.random() * usableHeight,
     passedBy: new Set(),
   };
 }
@@ -133,19 +144,21 @@ function nextPipeFor(bird) {
 
 function birdInputs(bird) {
   const pipe = nextPipeFor(bird);
+  const gap = pipeGap();
   return [
     bird.y / (HEIGHT - GROUND),
     bird.vy / 12,
     (pipe.x + PIPE_WIDTH - bird.x) / WIDTH,
-    (pipe.gapY - PIPE_GAP / 2 - bird.y) / HEIGHT,
-    (pipe.gapY + PIPE_GAP / 2 - bird.y) / HEIGHT,
+    (pipe.gapY - gap / 2 - bird.y) / HEIGHT,
+    (pipe.gapY + gap / 2 - bird.y) / HEIGHT,
   ];
 }
 
 function collide(bird, pipe) {
+  const gap = pipeGap();
   const hitsX = bird.x + bird.radius > pipe.x && bird.x - bird.radius < pipe.x + PIPE_WIDTH;
-  const aboveGap = bird.y - bird.radius < pipe.gapY - PIPE_GAP / 2;
-  const belowGap = bird.y + bird.radius > pipe.gapY + PIPE_GAP / 2;
+  const aboveGap = bird.y - bird.radius < pipe.gapY - gap / 2;
+  const belowGap = bird.y + bird.radius > pipe.gapY + gap / 2;
   return hitsX && (aboveGap || belowGap);
 }
 
@@ -191,7 +204,7 @@ function updatePipes() {
 
   if (pipes[0].x + PIPE_WIDTH < -20) {
     pipes.shift();
-    pipes.push(createPipe(pipes[pipes.length - 1].x + PIPE_SPACING));
+    pipes.push(createPipe(pipes[pipes.length - 1].x + pipeSpacing()));
   }
 
   const liveScores = population.map((bird) => bird.passed);
@@ -298,8 +311,9 @@ function drawBackground() {
 }
 
 function drawPipe(pipe) {
-  const topBottom = pipe.gapY - PIPE_GAP / 2;
-  const bottomTop = pipe.gapY + PIPE_GAP / 2;
+  const gap = pipeGap();
+  const topBottom = pipe.gapY - gap / 2;
+  const bottomTop = pipe.gapY + gap / 2;
 
   ctx.fillStyle = "#2f9a62";
   ctx.strokeStyle = "#197147";
@@ -484,6 +498,8 @@ ui.speed.addEventListener("input", () => {
   ui.speedValue.textContent = `${ui.speed.value}x`;
 });
 ui.population.addEventListener("change", resetAll);
+ui.pipeGap.addEventListener("change", resetAll);
+ui.pipeSpacing.addEventListener("change", resetAll);
 
 setupPopulation();
 requestAnimationFrame(loop);

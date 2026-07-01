@@ -27,6 +27,8 @@ Then open `http://localhost:5173`.
 - `Reset`: restart training from generation 1
 - `Simulation speed`: run more physics steps per animation frame
 - `Population` and `Mutation`: change the training setup and restart. Defaults are 10 birds and a 0.10 mutation rate.
+- `Passage tuyaux`: change the vertical opening between the upper and lower pipe
+- `Espacement tuyaux`: change the horizontal distance between consecutive pipes
 
 ## Notes
 

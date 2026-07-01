@@ -68,6 +68,17 @@
             </label>
           </div>
 
+          <div class="panel-section two-col">
+            <label>
+              Passage tuyaux
+              <input id="pipeGap" type="number" min="95" max="260" step="5" value="150" />
+            </label>
+            <label>
+              Espacement tuyaux
+              <input id="pipeSpacing" type="number" min="170" max="420" step="5" value="245" />
+            </label>
+          </div>
+
           <div class="panel-section">
             <div class="stat-line">
               <span>Best fitness</span>
@@ -95,6 +106,12 @@
               valeurs : la hauteur du bird, sa vitesse verticale, la distance jusqu'au prochain
               tuyau, la distance jusqu'au haut du passage et la distance jusqu'au bas du passage.
               Il renvoie une seule decision : sauter ou continuer a tomber.
+            </p>
+            <p>
+              Le passage des tuyaux change la hauteur disponible entre le tuyau du haut et celui du
+              bas. L'espacement des tuyaux change la distance horizontale avant le prochain obstacle.
+              Modifier ces valeurs redemarre l'entrainement pour que toute la generation apprenne
+              sur les memes regles.
             </p>
             <p>
               Pendant une generation, chaque bird vivant gagne du fitness en survivant, en restant
