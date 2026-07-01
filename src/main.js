@@ -40,7 +40,8 @@ const FLAP = -7.2;
 const INPUTS = 6;
 const HIDDEN = 7;
 const GENOME_LENGTH = INPUTS * HIDDEN + HIDDEN + HIDDEN + 1;
-const CHAMPION_STORAGE_KEY = "ai-flappy-evolution.champion";
+const CHAMPION_STORAGE_KEY = "neuro-evolution-arcade.flappy.champion";
+const LEGACY_CHAMPION_STORAGE_KEY = "ai-flappy-evolution.champion";
 const INPUT_LABELS = ["height", "velocity", "pipe x", "gap top", "gap bottom", "next gap"];
 const PRESETS = {
   easy: { speed: 2, mutation: 0.08, pipeGap: 190, pipeSpacing: 305 },
@@ -687,7 +688,7 @@ function saveChampion() {
 }
 
 function loadChampion() {
-  const raw = localStorage.getItem(CHAMPION_STORAGE_KEY);
+  const raw = localStorage.getItem(CHAMPION_STORAGE_KEY) || localStorage.getItem(LEGACY_CHAMPION_STORAGE_KEY);
   if (!raw) {
     setChampionStatus("No champion saved yet.");
     return;

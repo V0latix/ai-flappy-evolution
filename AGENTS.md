@@ -2,9 +2,13 @@
 
 ## Project
 
-AI Flappy Evolution is a static browser app. It has no build step and no runtime
-dependencies. The app is served directly from `index.html`, `src/main.js`, and
-`src/styles.css`.
+Neuro Evolution Arcade is a static browser app for training neural-network
+agents on small arcade games through neuroevolution. The current game is a
+Flappy-style pipe runner, but the codebase should evolve toward a multi-game
+lab.
+
+The app has no build step and no runtime dependencies. It is served directly
+from `index.html`, `src/main.js`, and `src/styles.css`.
 
 ## Commands
 
@@ -24,12 +28,12 @@ The test suite lives in `test/app.test.mjs` and uses Node's built-in
 
 ## Repository Layout
 
-- `index.html`: app structure and controls
+- `index.html`: app structure, controls, and explanatory content
 - `src/main.js`: game loop, neuroevolution, human mode, localStorage champion
   management, presets, and canvas drawing
 - `src/styles.css`: responsive layout and control styling
 - `test/app.test.mjs`: regression tests for the main app flows
-- `README.md`: user-facing documentation
+- `README.md`: user-facing documentation and game roadmap
 
 ## Implementation Rules
 
@@ -48,6 +52,22 @@ The test suite lives in `test/app.test.mjs` and uses Node's built-in
   - champion compatibility tests
   - explanatory text in `index.html` and `README.md`
 
+## Multi-Game Direction
+
+Future games should be added as modules with clear boundaries:
+
+- Game state and physics
+- Agent input vector
+- Action mapping
+- Fitness function
+- Rendering
+- Human-control adapter, when applicable
+- Tests for boot, controls, scoring, and reset behavior
+
+Avoid hard-coding game-specific concepts into shared neuroevolution logic when
+adding the next game. The next substantial refactor should separate the current
+pipe runner into a game module before adding Snake or Pong.
+
 ## Gameplay Notes
 
 - AI training mode uses generations, fitness, selection, crossover, and
@@ -56,9 +76,10 @@ The test suite lives in `test/app.test.mjs` and uses Node's built-in
   when the AI speed slider is higher. This keeps keyboard control playable.
 - Pipe gap and pipe spacing reset the current run so one generation is not
   scored across mixed difficulty settings.
-- Saved champions are stored in `localStorage` under
-  `ai-flappy-evolution.champion` and must be checked against the current genome
-  length before loading.
+- Saved pipe-runner champions are stored in `localStorage` under
+  `neuro-evolution-arcade.flappy.champion`.
+- The legacy key `ai-flappy-evolution.champion` should remain loadable while
+  older browser saves may still exist.
 
 ## Before Push Checklist
 

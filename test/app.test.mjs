@@ -7,7 +7,8 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 const root = new URL("../", import.meta.url);
-const championStorageKey = "ai-flappy-evolution.champion";
+const championStorageKey = "neuro-evolution-arcade.flappy.champion";
+const legacyChampionStorageKey = "ai-flappy-evolution.champion";
 const execFileAsync = promisify(execFile);
 
 class ClassList {
@@ -260,6 +261,7 @@ test("static app includes every primary control and asset reference", async () =
   }
 
   assert.match(html, /Comment les generations apprennent/);
+  assert.match(html, /Neuro Evolution Arcade/);
   assert.match(script, /const INPUTS = 6;/);
   assert.match(script, /next gap/);
 });
@@ -358,6 +360,23 @@ test("champion save, load, clear, and incompatible payload handling work", async
   element(harness, "clearChampion").click();
   assert.equal(harness.storage.getItem(championStorageKey), null);
   assert.match(element(harness, "championStatus").textContent, /cleared/);
+});
+
+test("legacy champion storage key remains loadable after project rename", async () => {
+  const harness = await loadHarness();
+  harness.runFrame();
+
+  const legacyPayload = {
+    genome: Array.from({ length: 57 }, () => 0),
+    bestFitness: 123,
+    bestScore: 4,
+  };
+  harness.storage.setItem(legacyChampionStorageKey, JSON.stringify(legacyPayload));
+  element(harness, "loadChampion").click();
+  harness.runFrame();
+
+  assert.match(element(harness, "championStatus").textContent, /loaded/);
+  assert.equal(element(harness, "bestFitness").textContent, 123);
 });
 
 test("pipe controls switch to custom preset and reset the active run", async () => {
