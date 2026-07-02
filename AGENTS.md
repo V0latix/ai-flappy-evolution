@@ -93,7 +93,9 @@ and champion storage keys.
   a successful landing. The displayed score is the total successful landings in
   the generation, while fitness is cumulative across attempts. Landers should
   spawn from the center of the simulation, while pads may appear across the full
-  visible width. Keep its physics, fitness shaping, slider tests, score metric
+  visible width. Positive fitness rewards are multiplied by pad difficulty, so
+  reaching or landing on edge targets is worth more than doing the same on a
+  central target. Keep its physics, fitness shaping, slider tests, score metric
   tests, and champion compatibility tests in sync.
 - Saved Flappy Bird champions are stored in `localStorage` under the historical
   `neuro-evolution-arcade.pipe-runner.champion`.

@@ -1038,6 +1038,12 @@ function createLunarGame() {
     return Math.hypot(dx, altitude);
   }
 
+  function padDifficultyMultiplier(targetWorld) {
+    const maxOffset = Math.max(1, WIDTH / 2 - targetWorld.pad.width / 2);
+    const normalizedOffset = Math.abs(targetWorld.pad.x - WIDTH / 2) / maxOffset;
+    return 1 + clamp(normalizedOffset, 0, 1) * 0.85;
+  }
+
   function inputsFor(agent, targetWorld) {
     return [
       (agent.x - WIDTH / 2) / (WIDTH / 2),
@@ -1123,13 +1129,15 @@ function createLunarGame() {
     const angleAbs = Math.abs(agent.angle);
     const distance = distanceToPad(agent, targetWorld);
     const approach = previousDistance - distance;
+    const padDifficulty = padDifficultyMultiplier(targetWorld);
+    let controlReward = 1;
+    controlReward += Math.max(0, 1 - padDx / 430) * 2.4;
+    controlReward += Math.max(0, 1 - speed / 4.2) * 2.1;
+    controlReward += Math.max(0, 1 - Math.abs(agent.vy) / 3.8) * 1.7;
+    controlReward += Math.max(0, 1 - angleAbs / 1.2) * 1.6;
+    if (approach > 0) controlReward += approach * 0.08;
     agent.lastDistance = distance;
-    agent.fitness += 1;
-    agent.fitness += Math.max(0, 1 - padDx / 430) * 2.4;
-    agent.fitness += Math.max(0, 1 - speed / 4.2) * 2.1;
-    agent.fitness += Math.max(0, 1 - Math.abs(agent.vy) / 3.8) * 1.7;
-    agent.fitness += Math.max(0, 1 - angleAbs / 1.2) * 1.6;
-    if (approach > 0) agent.fitness += approach * 0.08;
+    agent.fitness += controlReward * padDifficulty;
     if (controls.thrust) agent.fitness -= 0.16;
 
     if (agent.y + LANDER_HEIGHT / 2 >= MOON_Y) {
@@ -1143,10 +1151,10 @@ function createLunarGame() {
       if (agent.landed) {
         agent.score += 1;
         agent.completed = true;
-        agent.fitness += 12000 + agent.fuel * 22 - agent.age * 1.8;
+        agent.fitness += (12000 + agent.fuel * 22 - agent.age * 1.8) * padDifficulty;
       } else {
         const controlledImpact = Math.max(0, 1 - speed / 2.4) * 1000 + Math.max(0, 1 - angleAbs / 0.7) * 700;
-        agent.fitness += onPad ? 1400 + controlledImpact : 0;
+        agent.fitness += onPad ? (1400 + controlledImpact) * padDifficulty : 0;
         agent.fitness -= 1100 + padDx * 1.8 + speed * 340 + angleAbs * 650 + altitude;
         if (agent.attempts < MAX_ATTEMPTS) resetLander(agent, targetWorld, false);
         else agent.completed = true;

@@ -317,6 +317,9 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /const SIDE_THRUST_ASSIST = 1\.55/);
   assert.match(script, /const margin = width \/ 2/);
   assert.match(script, /agent\.x = WIDTH \/ 2/);
+  assert.match(script, /function padDifficultyMultiplier\(targetWorld\)/);
+  assert.match(script, /normalizedOffset/);
+  assert.match(script, /controlReward \* padDifficulty/);
   assert.match(script, /resetLander\(agent, targetWorld, false\)/);
   assert.match(script, /next gap/);
   assert.match(script, /pad dx/);
