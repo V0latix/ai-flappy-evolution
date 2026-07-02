@@ -969,6 +969,7 @@ function createLunarGame() {
   const LANDER_WIDTH = 28;
   const LANDER_HEIGHT = 32;
   const PAD_HEIGHT = 10;
+  const PAD_EDGE_BUFFER = LANDER_WIDTH + 20;
   const ROTATE_ACCEL = 0.012;
   const MAX_ANGLE = 1.25;
   const MAX_STEPS = 1150;
@@ -991,16 +992,25 @@ function createLunarGame() {
   }
 
   function makeLandingPad() {
+    const width = landingPadWidth();
+    const margin = width / 2 + PAD_EDGE_BUFFER;
     return {
-      x: WIDTH * (0.24 + Math.random() * 0.52),
-      width: landingPadWidth(),
+      x: margin + Math.random() * Math.max(1, WIDTH - margin * 2),
+      width,
     };
+  }
+
+  function launchXForPad(targetWorld) {
+    const driftRange = Math.min(WIDTH * 0.24, Math.max(160, targetWorld.pad.width * 1.35));
+    const minX = clamp(targetWorld.pad.x - driftRange, LANDER_WIDTH / 2 + 10, WIDTH - LANDER_WIDTH / 2 - 10);
+    const maxX = clamp(targetWorld.pad.x + driftRange, LANDER_WIDTH / 2 + 10, WIDTH - LANDER_WIDTH / 2 - 10);
+    return minX + Math.random() * Math.max(1, maxX - minX);
   }
 
   function resetLander(agent, targetWorld, resetTotals = true) {
     const fuel = initialFuel();
-    agent.x = WIDTH * (0.34 + Math.random() * 0.32);
-    agent.y = 72 + Math.random() * 34;
+    agent.x = launchXForPad(targetWorld);
+    agent.y = 44 + Math.random() * 36;
     agent.vx = Math.random() * 1.4 - 0.7;
     agent.vy = Math.random() * 0.25;
     agent.angle = Math.random() * 0.34 - 0.17;

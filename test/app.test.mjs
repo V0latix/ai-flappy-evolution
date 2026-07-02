@@ -246,6 +246,7 @@ function element(harness, id) {
 test("static app includes every primary control and asset reference", async () => {
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const script = await readFile(new URL("../src/main.js", import.meta.url), "utf8");
+  const favicon = await readFile(new URL("../assets/favicon.svg", import.meta.url), "utf8");
 
   for (const id of [
     "game",
@@ -291,8 +292,11 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(html, /Comment les generations apprennent/);
   assert.match(html, /Comment Lunar Lander apprend/);
   assert.match(html, /Neuro Evolution Arcade/);
+  assert.match(html, /rel="icon" type="image\/svg\+xml" href="\.\/assets\/favicon\.svg"/);
   assert.match(html, /Flappy Bird/);
   assert.match(html, /Lunar Lander/);
+  assert.match(favicon, /<svg/);
+  assert.match(favicon, /#1a56db/);
   assert.doesNotMatch(html, /Vol, timing, tuyaux/);
   assert.doesNotMatch(html, /Fuel, angle, touchdown/);
   assert.doesNotMatch(html, /Snake/);
@@ -307,6 +311,9 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /scoreMetric\(nextAgents\)/);
   assert.match(script, /agent\.score \+= 1/);
   assert.match(script, /const MAX_ATTEMPTS = 5/);
+  assert.match(script, /const PAD_EDGE_BUFFER = LANDER_WIDTH \+ 20/);
+  assert.match(script, /launchXForPad\(targetWorld\)/);
+  assert.match(script, /targetWorld\.pad\.x - driftRange/);
   assert.match(script, /resetLander\(agent, targetWorld, false\)/);
   assert.match(script, /next gap/);
   assert.match(script, /pad dx/);
