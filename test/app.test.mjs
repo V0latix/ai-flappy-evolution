@@ -281,6 +281,10 @@ test("static app includes every primary control and asset reference", async () =
     "lunarGravityValue",
     "lunarFuel",
     "lunarFuelValue",
+    "lunarPadSize",
+    "lunarPadSizeValue",
+    "lunarThrust",
+    "lunarThrustValue",
     "presetPanel",
     "preset",
     "leaderFitnessLabel",
@@ -355,6 +359,8 @@ test("game picker switches to Pong with sequential rally controls and network sh
   assert.equal(element(harness, "pipeSettings").hidden, true);
   assert.equal(element(harness, "pongSettings").classList.contains("is-hidden"), false);
   assert.equal(element(harness, "pongSettings").hidden, false);
+  assert.equal(element(harness, "lunarSettings").classList.contains("is-hidden"), true);
+  assert.equal(element(harness, "lunarSettings").hidden, true);
   assert.equal(element(harness, "presetPanel").classList.contains("is-hidden"), true);
   assert.equal(element(harness, "presetPanel").hidden, true);
   assert.equal(element(harness, "aliveLabel").textContent, "Specimen");
@@ -394,8 +400,11 @@ test("game picker switches to Lunar Lander with dedicated sliders and network sh
   assert.equal(element(harness, "activeGameTitle").textContent, "Lunar Lander Lite");
   assert.equal(element(harness, "gameLunar").classList.contains("is-active"), true);
   assert.equal(element(harness, "pipeSettings").hidden, true);
+  assert.equal(element(harness, "pipeSettings").classList.contains("is-hidden"), true);
   assert.equal(element(harness, "pongSettings").hidden, true);
+  assert.equal(element(harness, "pongSettings").classList.contains("is-hidden"), true);
   assert.equal(element(harness, "lunarSettings").hidden, false);
+  assert.equal(element(harness, "lunarSettings").classList.contains("is-hidden"), false);
   assert.equal(element(harness, "presetPanel").hidden, true);
   assert.equal(element(harness, "aliveLabel").textContent, "Alive");
   assert.equal(element(harness, "speedLabel").textContent, "Training speed");
@@ -406,6 +415,8 @@ test("game picker switches to Lunar Lander with dedicated sliders and network sh
   assert.equal(element(harness, "speed").max, 28);
   assert.equal(element(harness, "lunarGravityValue").textContent, "0.070");
   assert.equal(element(harness, "lunarFuelValue").textContent, "120");
+  assert.equal(element(harness, "lunarPadSizeValue").textContent, "126");
+  assert.equal(element(harness, "lunarThrustValue").textContent, "0.145");
 
   const networkCalls = element(harness, "network").getContext().calls;
   const labels = networkCalls.filter((call) => call.type === "fillText").map((call) => call.text);
@@ -668,9 +679,19 @@ test("Lunar-specific sliders reset Lunar without exposing other game settings", 
   harness.runFrame();
 
   assert.equal(element(harness, "generation").textContent, 1);
+
+  element(harness, "lunarPadSize").value = "160";
+  element(harness, "lunarPadSize").dispatchEvent({ type: "input" });
+  assert.equal(element(harness, "lunarPadSizeValue").textContent, "160");
+  element(harness, "lunarThrust").value = "0.160";
+  element(harness, "lunarThrust").dispatchEvent({ type: "input" });
+  assert.equal(element(harness, "lunarThrustValue").textContent, "0.160");
+
   assert.equal(element(harness, "lunarSettings").hidden, false);
   assert.equal(element(harness, "pipeSettings").hidden, true);
+  assert.equal(element(harness, "pipeSettings").classList.contains("is-hidden"), true);
   assert.equal(element(harness, "pongSettings").hidden, true);
+  assert.equal(element(harness, "pongSettings").classList.contains("is-hidden"), true);
   assert.equal(element(harness, "pipeGap").value, "150");
   assert.equal(element(harness, "pongBallSpeed").value, "4.8");
 });

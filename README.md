@@ -31,7 +31,8 @@ The app currently runs entirely in the browser and includes:
 - Local champion save/load via browser storage
 - Flappy Bird difficulty presets for gap, spacing, speed, and mutation
 - Pong-specific sliders for ball speed and paddle size
-- Lunar-specific sliders for gravity and initial fuel
+- Lunar-specific sliders for gravity, initial fuel, platform size, and engine
+  power
 
 ## Game Modules
 
@@ -110,6 +111,7 @@ environment.
   are 10 birds and a 0.10 mutation rate.
 - `Passage tuyaux`: change the vertical opening between the upper and lower pipe
 - `Espacement tuyaux`: change the horizontal distance between consecutive pipes
+  These pipe controls are only visible for Flappy Bird.
 - `Human play`: switch to manual play, then press `Space` to flap
 - `Pong`: use arrows or WASD in human mode
 - `Vitesse balle`: change Pong ball speed
@@ -118,6 +120,8 @@ environment.
   still testing one specimen at a time
 - `Gravite`: change Lunar Lander gravity and restart Lunar training
 - `Fuel initial`: change Lunar Lander starting fuel and restart Lunar training
+- `Taille plateforme`: change the Lunar landing platform width
+- `Puissance moteur`: change Lunar Lander thrust strength
 - `Save` / `Load` / `Clear`: manage the best saved champion in local browser
   storage
 - `Preset difficulte`: apply easy, normal, hard, or chaos training settings

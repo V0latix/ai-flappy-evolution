@@ -44,6 +44,10 @@ const ui = {
   lunarGravityValue: document.querySelector("#lunarGravityValue"),
   lunarFuel: document.querySelector("#lunarFuel"),
   lunarFuelValue: document.querySelector("#lunarFuelValue"),
+  lunarPadSize: document.querySelector("#lunarPadSize"),
+  lunarPadSizeValue: document.querySelector("#lunarPadSizeValue"),
+  lunarThrust: document.querySelector("#lunarThrust"),
+  lunarThrustValue: document.querySelector("#lunarThrustValue"),
   presetPanel: document.querySelector("#presetPanel"),
   preset: document.querySelector("#preset"),
   saveChampion: document.querySelector("#saveChampion"),
@@ -561,6 +565,8 @@ function updatePongSettingOutputs() {
 function updateLunarSettingOutputs() {
   ui.lunarGravityValue.textContent = Number(ui.lunarGravity.value).toFixed(3);
   ui.lunarFuelValue.textContent = ui.lunarFuel.value;
+  ui.lunarPadSizeValue.textContent = ui.lunarPadSize.value;
+  ui.lunarThrustValue.textContent = Number(ui.lunarThrust.value).toFixed(3);
 }
 
 function applyPreset(name) {
@@ -1319,9 +1325,7 @@ function createLunarGame() {
   const MOON_Y = HEIGHT - GROUND;
   const LANDER_WIDTH = 28;
   const LANDER_HEIGHT = 32;
-  const PAD_WIDTH = 126;
   const PAD_HEIGHT = 10;
-  const THRUST = 0.145;
   const ROTATE_ACCEL = 0.012;
   const MAX_ANGLE = 1.25;
   const MAX_STEPS = 1150;
@@ -1334,10 +1338,18 @@ function createLunarGame() {
     return clamp(numberValue(ui.lunarFuel, 120), 70, 170);
   }
 
+  function landingPadWidth() {
+    return clamp(numberValue(ui.lunarPadSize, 126), 80, 180);
+  }
+
+  function thrustPower() {
+    return clamp(numberValue(ui.lunarThrust, 0.145), 0.115, 0.18);
+  }
+
   function makeLandingPad() {
     return {
       x: WIDTH * (0.24 + Math.random() * 0.52),
-      width: PAD_WIDTH,
+      width: landingPadWidth(),
     };
   }
 
@@ -1419,8 +1431,9 @@ function createLunarGame() {
     agent.angle = clamp(agent.angle + agent.angularV, -MAX_ANGLE, MAX_ANGLE);
 
     if (controls.thrust && agent.fuel > 0) {
-      agent.vx += Math.sin(agent.angle) * THRUST;
-      agent.vy -= Math.cos(agent.angle) * THRUST;
+      const thrust = thrustPower();
+      agent.vx += Math.sin(agent.angle) * thrust;
+      agent.vy -= Math.cos(agent.angle) * thrust;
       agent.fuel = Math.max(0, agent.fuel - 0.62);
     }
   }
@@ -1722,7 +1735,7 @@ for (const control of [ui.pongBallSpeed, ui.pongPaddleSize]) {
   control.addEventListener("input", updatePongSettingOutputs);
   control.addEventListener("change", resetAll);
 }
-for (const control of [ui.lunarGravity, ui.lunarFuel]) {
+for (const control of [ui.lunarGravity, ui.lunarFuel, ui.lunarPadSize, ui.lunarThrust]) {
   control.addEventListener("input", updateLunarSettingOutputs);
   control.addEventListener("change", resetAll);
 }

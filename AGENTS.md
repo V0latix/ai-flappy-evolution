@@ -93,9 +93,12 @@ and champion storage keys.
 - Pong ball speed and paddle size reset the current Pong run for the same
   reason. Do not add a total rally duration cap; it artificially limits the
   best score when the horizontal ball speed is constant.
-- Lunar Lander Lite uses a dedicated settings panel for gravity and initial
-  fuel. These controls must be hidden for Flappy Bird and Pong, and changing
-  them should reset Lunar training.
+- Lunar Lander Lite uses a dedicated settings panel for gravity, initial fuel,
+  platform size, and engine power. These controls must be hidden for Flappy Bird
+  and Pong, and changing them should reset Lunar training.
+- Flappy Bird pipe controls (`pipeSettings`, `pipeGap`, `pipeSpacing`, and
+  `presetPanel`) must be visible only for Flappy Bird. Pong and Lunar should
+  never show pipe sliders.
 - Lunar Lander Lite has eight inputs (`x`, `altitude`, `vx`, `vy`, `angle`,
   `fuel`, `pad dx`, `spin`) and three outputs (`thrust`, `left`, `right`).
   Keep its physics, fitness shaping, slider tests, and champion compatibility
