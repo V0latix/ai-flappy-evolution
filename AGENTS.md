@@ -83,8 +83,9 @@ and champion storage keys.
 - Pong's right-side controls differ from Flappy Bird: pipe presets are hidden,
   Pong tuning sliders are shown, and the metric label changes to the current
   specimen.
-- Pong learning depends on the predicted impact signal and a seeded tracking
-  genome. If changing the Pong physics, keep `PONG_INPUT_LABELS`,
+- Pong learning depends on the predicted impact signal, three discrete outputs
+  (`up`, `stay`, `down`), and a seeded directional tracking genome. If changing
+  the Pong physics, keep `PONG_INPUT_LABELS`,
   `predictedImpactY`, `trackingGenome`, the fitness shaping, and champion
   compatibility tests in sync.
 - Pipe gap and pipe spacing reset the current run so one generation is not

@@ -1001,24 +1001,28 @@ function createPongGame() {
     return clamp((agent.ballX - targetX) / Math.abs(agent.ballVx) / 160, 0, 1);
   }
 
-  function targetFromOutput(output) {
-    const { top, bottom } = verticalBounds();
-    return top + clamp(output, 0, 1) * (bottom - top);
-  }
-
-  function actionTowardTarget(agent, targetY) {
+  function actionTowardImpact(agent, impactY = predictedImpactY(agent)) {
     const center = agent.paddleY + paddleHeight() / 2;
-    if (targetY < center - 6) return 0;
-    if (targetY > center + 6) return 2;
+    if (impactY < center - 6) return 0;
+    if (impactY > center + 6) return 2;
     return 1;
   }
 
   function trackingGenome(config) {
     const genome = Array.from({ length: genomeLength(config) }, () => 0);
-    genome[5] = 4.6;
-    genome[config.inputs * config.hidden] = -2.3;
+    const hiddenStride = config.inputs + 1;
+    genome[6] = -9;
+    genome[config.inputs] = -0.25;
+    genome[hiddenStride + 6] = 9;
+    genome[hiddenStride + config.inputs] = -0.25;
+
     const outputStart = config.inputs * config.hidden + config.hidden;
+    const outputStride = config.hidden + 1;
     genome[outputStart] = 4.2;
+    genome[outputStart + config.hidden] = -0.35;
+    genome[outputStart + outputStride + config.hidden] = 0.25;
+    genome[outputStart + outputStride * 2 + 1] = 4.2;
+    genome[outputStart + outputStride * 2 + config.hidden] = -0.35;
     return genome;
   }
 
@@ -1054,13 +1058,9 @@ function createPongGame() {
     ];
   }
 
-  function chooseDecision(agent) {
+  function chooseAction(agent) {
     const outputs = feedForward(agent.genome, inputsFor(agent));
-    const targetY = targetFromOutput(outputs[0]);
-    return {
-      targetY,
-      action: actionTowardTarget(agent, targetY),
-    };
+    return outputs.indexOf(Math.max(...outputs));
   }
 
   function applyPaddleAction(agent, action) {
@@ -1070,7 +1070,7 @@ function createPongGame() {
     agent.paddleY = clamp(agent.paddleY, TOP_WALL, BOTTOM_WALL - height);
   }
 
-  function updatePong(agent, decision) {
+  function updatePong(agent, action = 1) {
     if (!agent.alive) return;
 
     const height = paddleHeight();
@@ -1078,10 +1078,7 @@ function createPongGame() {
     const beforeImpact = predictedImpactY(agent);
     const beforeImpactDistance = Math.abs(beforeImpact - beforeCenter);
     const incoming = agent.ballVx < 0;
-    const action = typeof decision === "number" ? decision : decision?.action ?? 1;
-    const targetY = typeof decision === "number" ? beforeImpact : decision?.targetY ?? beforeImpact;
-    const desiredAction = actionTowardTarget(agent, beforeImpact);
-    const targetError = Math.abs(targetY - beforeImpact);
+    const desiredAction = actionTowardImpact(agent, beforeImpact);
 
     applyPaddleAction(agent, action);
     agent.ballX += agent.ballVx;
@@ -1108,9 +1105,8 @@ function createPongGame() {
     agent.fitness += incoming ? 0.6 : 0.2;
 
     if (incoming) {
-      agent.fitness += Math.max(0, 1 - impactDistance / (height * 1.7)) * 10;
-      agent.fitness += Math.max(0, 1 - targetError / HEIGHT) * 8;
-      agent.fitness += action === desiredAction ? 5 : -3.5;
+      agent.fitness += Math.max(0, 1 - impactDistance / (height * 1.7)) * 14;
+      agent.fitness += action === desiredAction ? 8 : -6;
       if (impactDistance < beforeImpactDistance) agent.fitness += 4;
       else agent.fitness -= 1.5;
     } else {
@@ -1138,7 +1134,6 @@ function createPongGame() {
       agent.alive = false;
       agent.fitness -= 450 + impactDistance * 2;
     }
-
   }
 
   function drawPong(targetCtx, agent, mode, currentScore) {
@@ -1201,10 +1196,10 @@ function createPongGame() {
     leaderFitnessLabel: "Current specimen",
     inputs: 8,
     hidden: 9,
-    outputs: 1,
+    outputs: 3,
     inputLabels: PONG_INPUT_LABELS,
-    outputLabels: ["target"],
-    outputLabel: "Target",
+    outputLabels: ["up", "stay", "down"],
+    outputLabel: "Move",
     distanceLabel: "Ball distance",
     championStorageKey: PONG_CHAMPION_STORAGE_KEY,
     championStorageKeys: [PONG_CHAMPION_STORAGE_KEY],
@@ -1253,7 +1248,7 @@ function createPongGame() {
     },
     stepWorld() {},
     updateAgent(agent) {
-      updatePong(agent, chooseDecision(agent));
+      updatePong(agent, chooseAction(agent));
     },
     updateHuman(agent) {
       if (!agent) return;

@@ -93,9 +93,9 @@ button:disabled {
 }
 
 .hud {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, auto);
+  align-items: start;
   gap: 24px;
   margin-bottom: 18px;
 }
@@ -104,6 +104,11 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+}
+
+.brand > div {
+  min-width: 0;
 }
 
 .brand-mark {
@@ -134,8 +139,10 @@ h2 {
 
 h1 {
   margin: 0;
-  font-size: clamp(1.8rem, 4vw, 3.8rem);
-  line-height: 0.95;
+  max-width: 100%;
+  font-size: 2.4rem;
+  line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 h2 {
@@ -145,17 +152,20 @@ h2 {
 
 .metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(105px, 1fr));
+  grid-template-columns: repeat(4, minmax(90px, 1fr));
   gap: 10px;
+  min-width: 0;
 }
 
 .metric {
+  min-width: 0;
   min-height: 70px;
   padding: 12px 14px;
   border: 2px solid var(--fg);
   border-radius: 0;
   background: var(--color-surface);
   box-shadow: none;
+  overflow: hidden;
 }
 
 .metric span,
@@ -172,8 +182,9 @@ label {
   display: block;
   margin-top: 4px;
   font-family: var(--font-display);
-  font-size: 1.65rem;
+  font-size: 1.45rem;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .sim-grid {
@@ -356,14 +367,10 @@ select {
   background: var(--color-surface-muted);
 }
 
-@media (max-width: 1040px) {
+@media (max-width: 1180px) {
   .hud,
   .sim-grid {
     grid-template-columns: 1fr;
-  }
-
-  .hud {
-    display: grid;
   }
 
   .metrics {
@@ -380,6 +387,15 @@ select {
     padding: 14px;
   }
 
+  .brand-mark {
+    width: 36px;
+    height: 36px;
+  }
+
+  h1 {
+    font-size: 1.7rem;
+  }
+
   .controls,
   .two-col,
   .game-picker {
@@ -392,5 +408,9 @@ select {
 
   .metric {
     min-height: 64px;
+  }
+
+  .metric strong {
+    font-size: 1.2rem;
   }
 }

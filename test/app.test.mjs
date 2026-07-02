@@ -294,7 +294,7 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /inputs: 6/);
   assert.match(script, /inputs: 8/);
   assert.match(script, /PONG_INPUT_LABELS/);
-  assert.match(script, /outputLabels: \["target"\]/);
+  assert.match(script, /outputLabels: \["up", "stay", "down"\]/);
   assert.match(script, /next gap/);
   assert.match(script, /impact dy/);
   assert.match(script, /trackingGenome/);
@@ -365,7 +365,9 @@ test("game picker switches to Pong with sequential rally controls and network sh
     "impact dy",
     "time",
   ]);
-  assert.equal(labels.includes("target"), true);
+  assert.equal(labels.includes("up"), true);
+  assert.equal(labels.includes("stay"), true);
+  assert.equal(labels.includes("down"), true);
 });
 
 test("training controls evolve generations and difficulty presets update numeric settings", async () => {
@@ -491,10 +493,10 @@ test("Pong champions are saved under the Pong key with compatible genome length"
   const saved = JSON.parse(harness.storage.getItem(pongChampionStorageKey));
 
   assert.equal(saved.game, "pong");
-  assert.equal(saved.genome.length, 91);
+  assert.equal(saved.genome.length, 111);
   assert.equal(saved.inputs, 8);
   assert.equal(saved.hidden, 9);
-  assert.equal(saved.outputs, 1);
+  assert.equal(saved.outputs, 3);
 
   element(harness, "loadChampion").click();
   harness.runFrame();

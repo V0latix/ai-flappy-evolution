@@ -20,7 +20,7 @@ The app currently runs entirely in the browser and includes:
 - Live metrics and a neural-network visualizer for the current champion
 - Flappy Bird with six inputs, including the following pipe gap
 - Pong with eight inputs, including predicted impact position and distance, and
-  one continuous target output for the paddle
+  three action outputs: up, stay, and down
 - Sequential Pong evaluation: one specimen plays a full rally, then the next
   specimen starts its own rally
 - Human play mode with the space bar for Flappy Bird and arrows/WASD for Pong
@@ -37,12 +37,12 @@ single flap decision.
 `Pong` trains paddle agents. The network observes the paddle position, ball
 position, ball velocity, vertical distance from the current ball, predicted
 impact position at the paddle line, impact distance, and time to impact. The
-network outputs a vertical target, and the paddle moves toward that target.
+network chooses one of three discrete actions: move up, stay, or move down.
 Pong is a strong fit for this app because the reward is immediate and visual:
-align with the predicted trajectory, return the ball, repeat. Pong also starts
-with a simple tracking genome so evolution has a useful baseline to mutate
-instead of waiting for a random population to discover paddle tracking from
-scratch.
+choose the right direction, align with the predicted trajectory, return the
+ball, repeat. Pong also starts with a simple directional tracking genome so
+evolution has a useful baseline to mutate instead of waiting for a random
+population to discover paddle tracking from scratch.
 
 ## Next Game Ideas
 
