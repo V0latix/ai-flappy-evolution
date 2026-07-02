@@ -4,8 +4,8 @@
 
 Neuro Evolution Arcade is a static browser app for training neural-network
 agents on small arcade games through neuroevolution. It currently includes
-Flappy Bird, Snake, and Pong, and the codebase should continue evolving as a
-multi-game lab.
+Flappy Bird and Pong, and the codebase should continue evolving as a multi-game
+lab.
 
 The app has no build step and no runtime dependencies. It is served directly
 from `index.html`, `src/main.js`, and `src/styles.css`.
@@ -66,7 +66,7 @@ boundaries:
 - Tests for boot, controls, scoring, and reset behavior
 
 Avoid hard-coding game-specific concepts into shared neuroevolution logic when
-adding the next game. Flappy Bird, Snake, and Pong now each define their own
+adding the next game. Flappy Bird and Pong now each define their own
 observation vector, action mapping, fitness function, rendering, human controls,
 and champion storage keys.
 
@@ -78,30 +78,23 @@ and champion storage keys.
   when the AI speed slider is higher. This keeps keyboard control playable.
 - Game switching resets the current run and activates only the selected game's
   settings and explanation panel.
-- Snake uses sequential evaluation. Only one specimen is active at a time; when
-  it dies, the next specimen starts a fresh Snake board. The generation evolves
-  only after every specimen has been evaluated.
-- Snake uses a hybrid Hamiltonian-cycle strategy. The cycle is the safe fallback
-  route, while the neural network proposes shortcuts. Keep shortcut validation
-  conservative: a neural move must avoid collisions and preserve enough cycle
-  distance before the tail, otherwise the agent should follow the next cycle
-  cell.
-- Pong also uses sequential evaluation. Only one specimen rally is shown at a
-  time, and the generation evolves after every specimen has played a rally.
-- Snake's right-side controls intentionally differ from Flappy Bird: the metric
-  label changes to `Specimen`, the speed slider has a higher maximum, and pipe
-  presets are hidden.
+- Pong uses sequential evaluation. Only one specimen rally is shown at a time,
+  and the generation evolves after every specimen has played a rally.
+- Pong's right-side controls differ from Flappy Bird: pipe presets are hidden,
+  Pong tuning sliders are shown, and the metric label changes to the current
+  specimen.
+- Pong learning depends on the predicted impact signal. If changing the Pong
+  physics, keep `PONG_INPUT_LABELS`, `predictedImpactY`, the fitness shaping,
+  and champion compatibility tests in sync.
 - Pipe gap and pipe spacing reset the current run so one generation is not
   scored across mixed difficulty settings.
-- Snake grid size and food patience reset the current Snake run for the same
-  reason.
+- Pong ball speed, paddle size, and rally duration reset the current Pong run
+  for the same reason.
 - Saved Flappy Bird champions are stored in `localStorage` under the historical
   `neuro-evolution-arcade.pipe-runner.champion`.
 - The previous key `neuro-evolution-arcade.flappy.champion` and legacy key
   `ai-flappy-evolution.champion` should remain loadable while older browser
   saves may still exist.
-- Saved Snake champions are stored under
-  `neuro-evolution-arcade.snake.champion`.
 - Saved Pong champions are stored under
   `neuro-evolution-arcade.pong.champion`.
 

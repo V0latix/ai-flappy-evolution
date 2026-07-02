@@ -44,10 +44,6 @@
               <strong>Flappy Bird</strong>
               <span>Vol, timing, tuyaux</span>
             </button>
-            <button id="gameSnake" class="game-tab" type="button">
-              <strong>Snake</strong>
-              <span>Grille, nourriture, survie</span>
-            </button>
             <button id="gamePong" class="game-tab" type="button">
               <strong>Pong</strong>
               <span>Paddle, balle, rally</span>
@@ -102,50 +98,24 @@
             </p>
           </section>
 
-          <section id="explanationSnake" class="panel-section explanation is-hidden">
-            <h2>Comment Snake apprend</h2>
-            <p>
-              Chaque snake possede un reseau neuronal different, mais il n'est plus laisse seul
-              face au probleme. Un cycle hamiltonien traverse toute la grille et sert de chemin securise:
-              en le suivant, le snake finit toujours par atteindre la nourriture sans se bloquer.
-            </p>
-            <p>
-              Une generation Snake est testee specimen par specimen. Le premier snake joue une
-              partie complete dans sa propre grille, puis le deuxieme demarre une nouvelle partie,
-              et ainsi de suite jusqu'a ce que toute la population ait ete evaluee. Le compteur
-              Specimen indique cette progression.
-            </p>
-            <p>
-              Le reseau neuronal propose des raccourcis vers la nourriture. L'application accepte
-              seulement les raccourcis compatibles avec le cycle, c'est-a-dire ceux qui ne coupent
-              pas devant le corps et gardent assez d'espace avant la queue. Sinon, le snake suit le
-              prochain pas du cycle. Le fitness recompense surtout la nourriture mangee et les bons
-              raccourcis.
-            </p>
-            <p>
-              A la fin d'une generation, les snakes les plus efficaces sont conserves. Les autres
-              sont crees par croisement de bons reseaux puis par mutation. Les generations suivantes
-              testent donc des variantes : certains snakes privilegient la securite, d'autres
-              prennent des chemins plus directs vers la nourriture.
-            </p>
-          </section>
-
           <section id="explanationPong" class="panel-section explanation is-hidden">
             <h2>Comment Pong apprend</h2>
             <p>
               Chaque specimen controle un paddle a gauche de l'ecran. Le reseau observe la position
-              du paddle, la position de la balle, sa vitesse et l'ecart vertical entre la balle et
-              le centre du paddle. Il choisit une action simple : monter, rester stable ou descendre.
+              du paddle, la position de la balle, sa vitesse, l'ecart vertical avec la balle et
+              une estimation du point d'impact sur le paddle. Il choisit une action simple :
+              monter, rester stable ou descendre.
             </p>
             <p>
               Un specimen joue un rally complet dans sa propre partie. Il gagne du fitness en
-              survivant, en se rapprochant de la trajectoire de la balle et surtout en renvoyant la
-              balle. Quand il rate la balle, le specimen suivant commence un nouveau rally.
+              allant dans la bonne direction quand la balle arrive, en restant aligne avec la
+              trajectoire predite et surtout en renvoyant la balle. Quand il rate la balle, le
+              specimen suivant commence un nouveau rally.
             </p>
             <p>
-              Pong est plus adapte que Snake a cette neuroevolution simple, car le signal est tres
-              direct : la balle arrive, le paddle doit s'aligner, puis le retour donne une recompense
-              forte. Les bons reflexes apparaissent donc plus vite visuellement.
+              Les reglages Pong a droite permettent de modifier la vitesse de la balle, la taille du
+              paddle et la duree maximale d'un rally. Chaque changement relance l'entrainement pour
+              comparer les specimens sur les memes conditions.
             </p>
           </section>
         </div>
@@ -192,15 +162,22 @@
             </label>
           </div>
 
-          <div id="snakeSettings" class="panel-section two-col is-hidden">
-            <label>
-              Taille grille
-              <input id="snakeGrid" type="number" min="16" max="34" step="2" value="24" />
-            </label>
-            <label>
-              Patience nourriture
-              <input id="snakePatience" type="number" min="35" max="220" step="5" value="90" />
-            </label>
+          <div id="pongSettings" class="panel-section is-hidden">
+            <label for="pongBallSpeed">Vitesse balle</label>
+            <div class="range-row">
+              <input id="pongBallSpeed" type="range" min="3.8" max="7.2" step="0.2" value="4.8" />
+              <output id="pongBallSpeedValue" for="pongBallSpeed">4.8</output>
+            </div>
+            <label for="pongPaddleSize">Taille paddle</label>
+            <div class="range-row">
+              <input id="pongPaddleSize" type="range" min="62" max="122" step="4" value="96" />
+              <output id="pongPaddleSizeValue" for="pongPaddleSize">96</output>
+            </div>
+            <label for="pongRallyLength">Duree rally</label>
+            <div class="range-row">
+              <input id="pongRallyLength" type="range" min="700" max="2400" step="100" value="1800" />
+              <output id="pongRallyLengthValue" for="pongRallyLength">1800</output>
+            </div>
           </div>
 
           <div id="presetPanel" class="panel-section">

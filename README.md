@@ -3,35 +3,30 @@
 Neuro Evolution Arcade is a browser playground for training small neural
 networks to play arcade-style games through neuroevolution.
 
-The first available game is Flappy Bird. Snake and Pong are now available as
-additional games. The long-term direction is to add more games that reuse the
-same learning loop: observe game state, decide an action, score fitness, select
-the strongest agents, cross over their networks, mutate weights, and run a new
-generation.
+The first available game is Flappy Bird. Pong is now available as a second
+game. The long-term direction is to add more games that reuse the same learning
+loop: observe game state, decide an action, score fitness, select the strongest
+agents, cross over their networks, mutate weights, and run a new generation.
 
 ## Current Games
 
 The app currently runs entirely in the browser and includes:
 
-- Canvas-based Flappy Bird, Snake, and Pong simulations
+- Canvas-based Flappy Bird and Pong simulations
 - A game picker that separates game-specific controls and explanations
 - Populations of neural-network-controlled agents
 - Fitness scoring, elite preservation, crossover, and mutation
 - Generation-by-generation training
 - Live metrics and a neural-network visualizer for the current champion
 - Flappy Bird with six inputs, including the following pipe gap
-- Snake with ten inputs, a Hamiltonian safety cycle, and four neural shortcut
-  actions: up, right, down, left
-- Sequential Snake evaluation: one specimen plays a full run, then the next
-  specimen starts its own run
-- Pong with six inputs and three paddle actions: up, stay, down
+- Pong with eight inputs, including predicted impact distance, and three paddle
+  actions: up, stay, down
 - Sequential Pong evaluation: one specimen plays a full rally, then the next
   specimen starts its own rally
-- Human play mode with the space bar for Flappy Bird and arrows/WASD for Snake
-  and Pong
+- Human play mode with the space bar for Flappy Bird and arrows/WASD for Pong
 - Local champion save/load via browser storage
 - Flappy Bird difficulty presets for gap, spacing, speed, and mutation
-- Snake-specific controls for grid size and food patience
+- Pong-specific sliders for ball speed, paddle size, and rally duration
 
 ## Game Modules
 
@@ -39,20 +34,12 @@ The app currently runs entirely in the browser and includes:
 velocity, obstacle distance, the current gap, and the next gap. The output is a
 single flap decision.
 
-`Snake` trains grid agents with a hybrid method. A Hamiltonian cycle covers the
-whole board and gives every snake a safe fallback route: if it keeps following
-the cycle, it will eventually reach food without trapping itself. The neural
-network does not replace that route; it proposes shortcuts. A shortcut is only
-accepted when it avoids walls and body collisions and still leaves enough cycle
-distance before the tail. Otherwise the snake follows the next Hamiltonian step.
-The network observes unsafe absolute moves, food position, current direction,
-cycle distance to the food, and length. Snake specimens are evaluated one at a
-time so each agent gets a separate board, food sequence, and fitness score.
-
 `Pong` trains paddle agents. The network observes the paddle position, ball
-position, ball velocity, and vertical distance from the paddle target. The
+position, ball velocity, vertical distance from the current ball, predicted
+impact distance at the paddle line, and whether the ball is incoming. The
 outputs select up, stay, or down. Pong is a strong fit for this app because the
-reward is immediate and visual: align with the ball, return it, repeat.
+reward is immediate and visual: align with the predicted trajectory, return the
+ball, repeat.
 
 ## Next Game Ideas
 
@@ -107,12 +94,12 @@ environment.
 - `Passage tuyaux`: change the vertical opening between the upper and lower pipe
 - `Espacement tuyaux`: change the horizontal distance between consecutive pipes
 - `Human play`: switch to manual play, then press `Space` to flap
-- `Snake`: use arrows or WASD in human mode
 - `Pong`: use arrows or WASD in human mode
-- `Taille grille`: change the Snake board size
-- `Patience nourriture`: change how long Snake agents may survive without food
-- `Specimen speed`: in Snake, run more steps per frame while still testing one
-  specimen at a time. In Pong, this becomes rally speed.
+- `Vitesse balle`: change Pong ball speed
+- `Taille paddle`: change Pong paddle height
+- `Duree rally`: change the maximum Pong rally length
+- `Training speed`: in Pong, run more simulation steps per animation frame while
+  still testing one specimen at a time
 - `Save` / `Load` / `Clear`: manage the best saved champion in local browser
   storage
 - `Preset difficulte`: apply easy, normal, hard, or chaos training settings

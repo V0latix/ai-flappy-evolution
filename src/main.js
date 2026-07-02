@@ -20,7 +20,6 @@ const ui = {
   modeAi: document.querySelector("#modeAi"),
   modeHuman: document.querySelector("#modeHuman"),
   gamePipe: document.querySelector("#gamePipe"),
-  gameSnake: document.querySelector("#gameSnake"),
   gamePong: document.querySelector("#gamePong"),
   activeGameTitle: document.querySelector("#activeGameTitle"),
   gameObjective: document.querySelector("#gameObjective"),
@@ -34,9 +33,13 @@ const ui = {
   pipeSettings: document.querySelector("#pipeSettings"),
   pipeGap: document.querySelector("#pipeGap"),
   pipeSpacing: document.querySelector("#pipeSpacing"),
-  snakeSettings: document.querySelector("#snakeSettings"),
-  snakeGrid: document.querySelector("#snakeGrid"),
-  snakePatience: document.querySelector("#snakePatience"),
+  pongSettings: document.querySelector("#pongSettings"),
+  pongBallSpeed: document.querySelector("#pongBallSpeed"),
+  pongBallSpeedValue: document.querySelector("#pongBallSpeedValue"),
+  pongPaddleSize: document.querySelector("#pongPaddleSize"),
+  pongPaddleSizeValue: document.querySelector("#pongPaddleSizeValue"),
+  pongRallyLength: document.querySelector("#pongRallyLength"),
+  pongRallyLengthValue: document.querySelector("#pongRallyLengthValue"),
   presetPanel: document.querySelector("#presetPanel"),
   preset: document.querySelector("#preset"),
   saveChampion: document.querySelector("#saveChampion"),
@@ -44,7 +47,6 @@ const ui = {
   clearChampion: document.querySelector("#clearChampion"),
   championStatus: document.querySelector("#championStatus"),
   explanationPipe: document.querySelector("#explanationPipe"),
-  explanationSnake: document.querySelector("#explanationSnake"),
   explanationPong: document.querySelector("#explanationPong"),
 };
 
@@ -60,7 +62,6 @@ const DEFAULT_HIDDEN = 7;
 const PIPE_CHAMPION_STORAGE_KEY = "neuro-evolution-arcade.pipe-runner.champion";
 const PIPE_PREVIOUS_CHAMPION_STORAGE_KEY = "neuro-evolution-arcade.flappy.champion";
 const PIPE_LEGACY_CHAMPION_STORAGE_KEY = "ai-flappy-evolution.champion";
-const SNAKE_CHAMPION_STORAGE_KEY = "neuro-evolution-arcade.snake.champion";
 const PONG_CHAMPION_STORAGE_KEY = "neuro-evolution-arcade.pong.champion";
 const PRESETS = {
   easy: { speed: 2, mutation: 0.08, pipeGap: 190, pipeSpacing: 305 },
@@ -70,23 +71,10 @@ const PRESETS = {
 };
 
 const PIPE_INPUT_LABELS = ["height", "velocity", "pipe x", "gap top", "gap bottom", "next gap"];
-const SNAKE_INPUT_LABELS = [
-  "unsafe U",
-  "unsafe R",
-  "unsafe D",
-  "unsafe L",
-  "food x",
-  "food y",
-  "dir x",
-  "dir y",
-  "cycle food",
-  "length",
-];
-const PONG_INPUT_LABELS = ["paddle y", "ball x", "ball y", "ball vx", "ball vy", "target dy"];
+const PONG_INPUT_LABELS = ["paddle y", "ball x", "ball y", "ball vx", "ball vy", "target dy", "impact dy", "incoming"];
 
 const games = {
   pipe: createPipeGame(),
-  snake: createSnakeGame(),
   pong: createPongGame(),
 };
 
@@ -521,7 +509,6 @@ function setGame(nextGameKey) {
 
 function updateGameUi() {
   ui.gamePipe.classList.toggle("is-active", activeGameKey === "pipe");
-  ui.gameSnake.classList.toggle("is-active", activeGameKey === "snake");
   ui.gamePong.classList.toggle("is-active", activeGameKey === "pong");
   ui.activeGameTitle.textContent = game.title;
   ui.gameObjective.textContent = game.objective;
@@ -532,12 +519,18 @@ function updateGameUi() {
   ui.distanceLabel.textContent = game.distanceLabel;
   ui.leaderFitnessLabel.textContent = game.leaderFitnessLabel;
   ui.pipeSettings.classList.toggle("is-hidden", activeGameKey !== "pipe");
-  ui.snakeSettings.classList.toggle("is-hidden", activeGameKey !== "snake");
+  ui.pongSettings.classList.toggle("is-hidden", activeGameKey !== "pong");
   ui.explanationPipe.classList.toggle("is-hidden", activeGameKey !== "pipe");
-  ui.explanationSnake.classList.toggle("is-hidden", activeGameKey !== "snake");
   ui.explanationPong.classList.toggle("is-hidden", activeGameKey !== "pong");
   ui.preset.disabled = activeGameKey !== "pipe";
   ui.presetPanel.classList.toggle("is-hidden", activeGameKey !== "pipe");
+  updatePongSettingOutputs();
+}
+
+function updatePongSettingOutputs() {
+  ui.pongBallSpeedValue.textContent = Number(ui.pongBallSpeed.value).toFixed(1);
+  ui.pongPaddleSizeValue.textContent = ui.pongPaddleSize.value;
+  ui.pongRallyLengthValue.textContent = ui.pongRallyLength.value;
 }
 
 function applyPreset(name) {
@@ -951,484 +944,79 @@ function createPipeGame() {
   };
 }
 
-function createSnakeGame() {
-  function gridSize() {
-    return clamp(Math.round(numberValue(ui.snakeGrid, 24)), 16, 34);
-  }
-
-  function patienceLimit() {
-    return clamp(Math.round(numberValue(ui.snakePatience, 90)), 35, 220);
-  }
-
-  function evenRows(cols) {
-    const preferred = Math.max(12, Math.round(cols * 0.66));
-    return preferred % 2 === 0 ? preferred : preferred + 1;
-  }
-
-  function createHamiltonianCycle(cols, rows) {
-    const cycle = [];
-    for (let x = 0; x < cols; x += 1) cycle.push({ x, y: 0 });
-
-    for (let y = 1; y < rows; y += 1) {
-      if (y % 2 === 1) {
-        for (let x = cols - 1; x >= 1; x -= 1) cycle.push({ x, y });
-      } else {
-        for (let x = 1; x < cols; x += 1) cycle.push({ x, y });
-      }
-    }
-
-    for (let y = rows - 1; y >= 1; y -= 1) cycle.push({ x: 0, y });
-
-    const index = new Map();
-    for (const [position, point] of cycle.entries()) {
-      index.set(`${point.x},${point.y}`, position);
-    }
-
-    return { cycle, index };
-  }
-
-  function board(targetWorld) {
-    const size = Math.floor(Math.min((WIDTH - 96) / targetWorld.cols, (HEIGHT - 96) / targetWorld.rows));
-    const width = size * targetWorld.cols;
-    const height = size * targetWorld.rows;
-    return {
-      cell: size,
-      x: Math.floor((WIDTH - width) / 2),
-      y: Math.floor((HEIGHT - height) / 2) + 12,
-      width,
-      height,
-    };
-  }
-
-  function randomFood(agent, targetWorld) {
-    const occupied = new Set(agent.body.map((part) => `${part.x},${part.y}`));
-    const empty = [];
-    for (let y = 0; y < targetWorld.rows; y += 1) {
-      for (let x = 0; x < targetWorld.cols; x += 1) {
-        if (!occupied.has(`${x},${y}`)) empty.push({ x, y });
-      }
-    }
-    return empty[Math.floor(Math.random() * empty.length)] || { x: 0, y: 0 };
-  }
-
-  function resetSnake(agent, targetWorld) {
-    const start = Math.floor(Math.random() * targetWorld.cycle.length);
-    const head = targetWorld.cycle[start];
-    const neck = targetWorld.cycle[(start - 1 + targetWorld.cycle.length) % targetWorld.cycle.length];
-    const tail = targetWorld.cycle[(start - 2 + targetWorld.cycle.length) % targetWorld.cycle.length];
-    const next = targetWorld.cycle[(start + 1) % targetWorld.cycle.length];
-    agent.dir = { x: next.x - head.x, y: next.y - head.y };
-    agent.pendingDir = { ...agent.dir };
-    agent.body = [{ ...head }, { ...neck }, { ...tail }];
-    agent.food = randomFood(agent, targetWorld);
-    agent.alive = true;
-    agent.fitness = 0;
-    agent.score = 0;
-    agent.age = 0;
-    agent.stepsSinceFood = 0;
-    agent.staleSteps = 0;
-    agent.bestFoodDistance = manhattan(agent.body[0], agent.food);
-    agent.shortcutCount = 0;
-    agent.followCount = 0;
-    agent.visitCounts = new Map(agent.body.map((part) => [`${part.x},${part.y}`, 1]));
-  }
-
-  const DIRECTIONS = [
-    { x: 0, y: -1, label: "up" },
-    { x: 1, y: 0, label: "right" },
-    { x: 0, y: 1, label: "down" },
-    { x: -1, y: 0, label: "left" },
-  ];
-
-  function nextHead(agent, dir = agent.dir) {
-    return {
-      x: agent.body[0].x + dir.x,
-      y: agent.body[0].y + dir.y,
-    };
-  }
-
-  function manhattan(a, b) {
-    return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-  }
-
-  function isReverse(a, b) {
-    return a.x + b.x === 0 && a.y + b.y === 0;
-  }
-
-  function keyFor(point) {
-    return `${point.x},${point.y}`;
-  }
-
-  function cycleIndex(targetWorld, point) {
-    return targetWorld.cycleIndex.get(keyFor(point));
-  }
-
-  function cycleDistance(targetWorld, fromIndex, toIndex) {
-    return (toIndex - fromIndex + targetWorld.cycle.length) % targetWorld.cycle.length;
-  }
-
-  function directionToAction(direction) {
-    return DIRECTIONS.findIndex((candidate) => candidate.x === direction.x && candidate.y === direction.y);
-  }
-
-  function hamiltonianAction(agent, targetWorld) {
-    const headIndex = cycleIndex(targetWorld, agent.body[0]);
-    const nextPoint = targetWorld.cycle[(headIndex + 1) % targetWorld.cycle.length];
-    return directionToAction({
-      x: nextPoint.x - agent.body[0].x,
-      y: nextPoint.y - agent.body[0].y,
-    });
-  }
-
-  function isCycleSafeMove(agent, targetWorld, direction) {
-    if (isReverse(direction, agent.dir)) return false;
-    const head = agent.body[0];
-    const target = { x: head.x + direction.x, y: head.y + direction.y };
-    if (target.x < 0 || target.y < 0 || target.x >= targetWorld.cols || target.y >= targetWorld.rows) return false;
-
-    const targetKey = keyFor(target);
-    const tailKey = keyFor(agent.body[agent.body.length - 1]);
-    const willEat = target.x === agent.food.x && target.y === agent.food.y;
-    const hitsBody = agent.body.some((part, index) => index > 0 && keyFor(part) === targetKey);
-    if (hitsBody && (willEat || targetKey !== tailKey)) return false;
-
-    const headIndex = cycleIndex(targetWorld, head);
-    const targetIndex = cycleIndex(targetWorld, target);
-    const tailIndex = cycleIndex(targetWorld, agent.body[agent.body.length - 1]);
-    const targetDistance = cycleDistance(targetWorld, headIndex, targetIndex);
-    const tailDistance = cycleDistance(targetWorld, headIndex, tailIndex);
-    if (targetDistance === 0) return false;
-    if (targetDistance === 1) return true;
-
-    const reservedTailGap = Math.max(3, Math.min(12, agent.body.length + 1));
-    return targetDistance < Math.max(2, tailDistance - reservedTailGap);
-  }
-
-  function inputsFor(agent, targetWorld) {
-    const head = agent.body[0];
-    const headIndex = cycleIndex(targetWorld, head);
-    const foodIndex = cycleIndex(targetWorld, agent.food);
-    return [
-      isCycleSafeMove(agent, targetWorld, DIRECTIONS[0]) ? 0 : 1,
-      isCycleSafeMove(agent, targetWorld, DIRECTIONS[1]) ? 0 : 1,
-      isCycleSafeMove(agent, targetWorld, DIRECTIONS[2]) ? 0 : 1,
-      isCycleSafeMove(agent, targetWorld, DIRECTIONS[3]) ? 0 : 1,
-      (agent.food.x - head.x) / targetWorld.cols,
-      (agent.food.y - head.y) / targetWorld.rows,
-      agent.dir.x,
-      agent.dir.y,
-      cycleDistance(targetWorld, headIndex, foodIndex) / targetWorld.cycle.length,
-      agent.body.length / (targetWorld.cols * targetWorld.rows),
-    ];
-  }
-
-  function chooseAction(agent, targetWorld) {
-    const outputs = feedForward(agent.genome, inputsFor(agent, targetWorld));
-    const hamiltonian = hamiltonianAction(agent, targetWorld);
-    const choice = outputs
-      .map((value, index) => ({ index, value }))
-      .sort((a, b) => b.value - a.value)
-      .find((candidate) => isCycleSafeMove(agent, targetWorld, DIRECTIONS[candidate.index]));
-
-    return {
-      action: choice?.index ?? hamiltonian,
-      usedShortcut: choice !== undefined && choice.index !== hamiltonian,
-    };
-  }
-
-  function updateSnake(agent, targetWorld, decision = null) {
-    if (!agent.alive) return;
-
-    const hamiltonian = hamiltonianAction(agent, targetWorld);
-    const action = typeof decision === "number" ? decision : decision?.action ?? hamiltonian;
-    const usedShortcut = Boolean(decision?.usedShortcut);
-    const previousDistance = manhattan(agent.body[0], agent.food);
-    const nextDirection = DIRECTIONS[action] || DIRECTIONS[hamiltonian] || DIRECTIONS[1];
-    agent.dir = { x: nextDirection.x, y: nextDirection.y };
-
-    const head = nextHead(agent);
-    agent.age += 1;
-    agent.stepsSinceFood += 1;
-    agent.staleSteps += 1;
-    agent.fitness += 0.25;
-    agent.followCount += usedShortcut ? 0 : 1;
-    agent.shortcutCount += usedShortcut ? 1 : 0;
-    if (usedShortcut) agent.fitness += 5;
-
-    const willEat = head.x === agent.food.x && head.y === agent.food.y;
-    const headKey = keyFor(head);
-    const tailKey = keyFor(agent.body[agent.body.length - 1]);
-    const outOfBounds = head.x < 0 || head.y < 0 || head.x >= targetWorld.cols || head.y >= targetWorld.rows;
-    const hitsBody = agent.body.some((part, index) => index > 0 && keyFor(part) === headKey);
-    if (outOfBounds || (hitsBody && (willEat || headKey !== tailKey))) {
-      agent.alive = false;
-      agent.fitness -= 300;
-      return;
-    }
-
-    agent.body.unshift(head);
-    if (willEat) {
-      agent.score += 1;
-      agent.stepsSinceFood = 0;
-      agent.staleSteps = 0;
-      agent.fitness += 1400 + agent.score * 320 + agent.body.length * 24;
-      agent.food = randomFood(agent, targetWorld);
-      agent.bestFoodDistance = manhattan(agent.body[0], agent.food);
-    } else {
-      agent.body.pop();
-      const nextDistance = manhattan(head, agent.food);
-      if (nextDistance < agent.bestFoodDistance) {
-        agent.bestFoodDistance = nextDistance;
-        agent.staleSteps = 0;
-        agent.fitness += 45;
-      } else if (nextDistance < previousDistance) {
-        agent.fitness += 12;
-      } else {
-        agent.fitness -= 18;
-      }
-    }
-
-    const key = keyFor(head);
-    const visitCount = (agent.visitCounts.get(key) || 0) + 1;
-    agent.visitCounts.set(key, visitCount);
-    if (visitCount > 1) {
-      agent.fitness -= visitCount * 12;
-    }
-
-    const maxRun = targetWorld.cycle.length * 2 + agent.score * Math.floor(targetWorld.cycle.length * 0.35);
-    const maxIdle = Math.max(Math.floor(targetWorld.cycle.length * 0.5), patienceLimit() * 3);
-    if (agent.age > maxRun || agent.stepsSinceFood > maxIdle) {
-      agent.alive = false;
-      agent.fitness -= 40;
-    }
-  }
-
-  function setHumanDirection(agent, dir) {
-    if (!agent || !agent.alive) return;
-    if (!isReverse(dir, agent.dir)) agent.pendingDir = dir;
-  }
-
-  function drawSnake(targetCtx, agent, targetWorld, alpha = 1) {
-    const targetBoard = board(targetWorld);
-    targetCtx.save();
-    targetCtx.globalAlpha = alpha;
-
-    targetCtx.strokeStyle = "rgba(36, 123, 160, 0.18)";
-    targetCtx.lineWidth = 1;
-    targetCtx.beginPath();
-    for (const [index, point] of targetWorld.cycle.entries()) {
-      const x = targetBoard.x + point.x * targetBoard.cell + targetBoard.cell / 2;
-      const y = targetBoard.y + point.y * targetBoard.cell + targetBoard.cell / 2;
-      if (index === 0) targetCtx.moveTo(x, y);
-      else targetCtx.lineTo(x, y);
-    }
-    const first = targetWorld.cycle[0];
-    targetCtx.lineTo(
-      targetBoard.x + first.x * targetBoard.cell + targetBoard.cell / 2,
-      targetBoard.y + first.y * targetBoard.cell + targetBoard.cell / 2,
-    );
-    targetCtx.stroke();
-
-    for (const [index, part] of agent.body.entries()) {
-      const x = targetBoard.x + part.x * targetBoard.cell;
-      const y = targetBoard.y + part.y * targetBoard.cell;
-      targetCtx.fillStyle = index === 0 ? "#172026" : `hsl(${agent.hue} 68% ${index < 4 ? 43 : 36}%)`;
-      targetCtx.fillRect(x + 1, y + 1, targetBoard.cell - 2, targetBoard.cell - 2);
-    }
-
-    targetCtx.fillStyle = "#e86f51";
-    targetCtx.beginPath();
-    targetCtx.arc(
-      targetBoard.x + agent.food.x * targetBoard.cell + targetBoard.cell / 2,
-      targetBoard.y + agent.food.y * targetBoard.cell + targetBoard.cell / 2,
-      targetBoard.cell * 0.34,
-      0,
-      Math.PI * 2,
-    );
-    targetCtx.fill();
-    targetCtx.restore();
-  }
-
-  return {
-    key: "snake",
-    title: "Snake",
-    objective: "Les agents suivent un cycle hamiltonien securise et apprennent quand prendre des raccourcis vers la nourriture.",
-    hint: "IA: le cycle garantit un chemin securise; le reseau propose seulement des raccourcis valides. Humain: fleches ou WASD.",
-    sequential: true,
-    defaultSpeed: 18,
-    maxSpeed: 60,
-    speedLabel: "Specimen speed",
-    populationLabel: "Specimens",
-    leaderFitnessLabel: "Current specimen",
-    inputs: 10,
-    hidden: 9,
-    outputs: 4,
-    inputLabels: SNAKE_INPUT_LABELS,
-    outputLabels: ["up", "right", "down", "left"],
-    outputLabel: "Move",
-    distanceLabel: "Food distance",
-    championStorageKey: SNAKE_CHAMPION_STORAGE_KEY,
-    championStorageKeys: [SNAKE_CHAMPION_STORAGE_KEY],
-    defaultChampionStatus: "No Snake champion saved yet.",
-    humanNetworkMessage: "Switch to AI training to view the snake network.",
-    createWorld() {
-      const cols = gridSize();
-      const rows = evenRows(cols);
-      const { cycle, index } = createHamiltonianCycle(cols, rows);
-      return { cols, rows, cycle, cycleIndex: index, activeAgentIndex: 0 };
-    },
-    makeAgent(id, genome) {
-      return {
-        id,
-        genome,
-        alive: true,
-        fitness: 0,
-        score: 0,
-        age: 0,
-        stepsSinceFood: 0,
-        staleSteps: 0,
-        bestFoodDistance: 0,
-        shortcutCount: 0,
-        followCount: 0,
-        body: [],
-        food: { x: 0, y: 0 },
-        dir: { x: 1, y: 0 },
-        pendingDir: { x: 1, y: 0 },
-        hue: 118 + Math.random() * 90,
-      };
-    },
-    makeHumanAgent(id) {
-      const agent = this.makeAgent(id, createGenome(this));
-      agent.hue = 205;
-      return agent;
-    },
-    resetAgents(nextAgents, targetWorld) {
-      targetWorld.activeAgentIndex = 0;
-      for (const agent of nextAgents) {
-        agent.alive = false;
-        agent.fitness = 0;
-        agent.score = 0;
-        agent.age = 0;
-        agent.body = [];
-        agent.food = { x: 0, y: 0 };
-      }
-    },
-    startAgent(agent, targetWorld) {
-      resetSnake(agent, targetWorld);
-    },
-    resetHuman(agent, targetWorld) {
-      resetSnake(agent, targetWorld);
-      const centerX = Math.floor(targetWorld.cols / 2);
-      const centerY = Math.floor(targetWorld.rows / 2);
-      agent.dir = { x: 1, y: 0 };
-      agent.pendingDir = { x: 1, y: 0 };
-      agent.body = [
-        { x: centerX, y: centerY },
-        { x: centerX - 1, y: centerY },
-        { x: centerX - 2, y: centerY },
-      ];
-      agent.food = randomFood(agent, targetWorld);
-      agent.bestFoodDistance = manhattan(agent.body[0], agent.food);
-      agent.visitCounts = new Map(agent.body.map((part) => [`${part.x},${part.y}`, 1]));
-    },
-    stepWorld() {},
-    updateAgent(agent, targetWorld) {
-      updateSnake(agent, targetWorld, chooseAction(agent, targetWorld));
-    },
-    updateHuman(agent, targetWorld) {
-      if (!agent) return;
-      updateSnake(agent, targetWorld, directionToAction(agent.pendingDir));
-    },
-    humanPrimaryAction() {},
-    handleHumanKey(event, agent) {
-      const directions = {
-        ArrowUp: { x: 0, y: -1 },
-        KeyW: { x: 0, y: -1 },
-        ArrowDown: { x: 0, y: 1 },
-        KeyS: { x: 0, y: 1 },
-        ArrowLeft: { x: -1, y: 0 },
-        KeyA: { x: -1, y: 0 },
-        ArrowRight: { x: 1, y: 0 },
-        KeyD: { x: 1, y: 0 },
-      };
-      if (!directions[event.code]) return false;
-      setHumanDirection(agent, directions[event.code]);
-      return true;
-    },
-    distanceMetric(agent) {
-      if (!agent?.body?.length) return 0;
-      return manhattan(agent.body[0], agent.food);
-    },
-    draw(targetCtx, targetWorld, visibleAgents, mode, currentScore) {
-      targetCtx.fillStyle = "#eef6ef";
-      targetCtx.fillRect(0, 0, WIDTH, HEIGHT);
-
-      const targetBoard = board(targetWorld);
-      targetCtx.fillStyle = "#dfe9df";
-      targetCtx.fillRect(targetBoard.x - 8, targetBoard.y - 8, targetBoard.width + 16, targetBoard.height + 16);
-      targetCtx.fillStyle = "#fbfdfc";
-      targetCtx.fillRect(targetBoard.x, targetBoard.y, targetBoard.width, targetBoard.height);
-
-      targetCtx.strokeStyle = "rgba(23, 32, 38, 0.08)";
-      targetCtx.lineWidth = 1;
-      for (let x = 0; x <= targetWorld.cols; x += 1) {
-        targetCtx.beginPath();
-        targetCtx.moveTo(targetBoard.x + x * targetBoard.cell, targetBoard.y);
-        targetCtx.lineTo(targetBoard.x + x * targetBoard.cell, targetBoard.y + targetBoard.height);
-        targetCtx.stroke();
-      }
-      for (let y = 0; y <= targetWorld.rows; y += 1) {
-        targetCtx.beginPath();
-        targetCtx.moveTo(targetBoard.x, targetBoard.y + y * targetBoard.cell);
-        targetCtx.lineTo(targetBoard.x + targetBoard.width, targetBoard.y + y * targetBoard.cell);
-        targetCtx.stroke();
-      }
-
-      if (mode === "ai") {
-        const liveAgents = visibleAgents.filter((agent) => agent.alive).sort((a, b) => b.fitness - a.fitness);
-        liveAgents.slice(1, 18).forEach((agent) => drawSnake(targetCtx, agent, targetWorld, 0.16));
-        if (liveAgents[0]) drawSnake(targetCtx, liveAgents[0], targetWorld, 1);
-      } else if (visibleAgents[0]) {
-        drawSnake(targetCtx, visibleAgents[0], targetWorld, 1);
-      }
-
-      drawScoreBadge(targetCtx, currentScore);
-      drawCrashOverlay(targetCtx, mode, visibleAgents[0], "Press an arrow key or Reset to play again");
-    },
-  };
-}
-
 function createPongGame() {
   const PADDLE_X = 58;
   const PADDLE_WIDTH = 14;
-  const PADDLE_HEIGHT = 92;
   const BALL_RADIUS = 9;
-  const PADDLE_SPEED = 7.4;
-  const BALL_SPEED = 5.2;
-  const MAX_RALLY_FRAMES = 1600;
+  const PADDLE_SPEED = 8;
+  const TOP_WALL = 18;
+  const BOTTOM_WALL = HEIGHT - 18;
+  const RIGHT_WALL = WIDTH - 28;
+
+  function paddleHeight() {
+    return clamp(Math.round(numberValue(ui.pongPaddleSize, 96)), 62, 122);
+  }
+
+  function ballSpeed() {
+    return clamp(numberValue(ui.pongBallSpeed, 4.8), 3.8, 7.2);
+  }
+
+  function rallyLimit() {
+    return clamp(Math.round(numberValue(ui.pongRallyLength, 1800)), 700, 2400);
+  }
+
+  function verticalBounds() {
+    return {
+      top: TOP_WALL + BALL_RADIUS,
+      bottom: BOTTOM_WALL - BALL_RADIUS,
+    };
+  }
+
+  function reflectY(rawY) {
+    const { top, bottom } = verticalBounds();
+    const span = bottom - top;
+    if (span <= 0) return top;
+    let position = (rawY - top) % (span * 2);
+    if (position < 0) position += span * 2;
+    return position <= span ? top + position : bottom - (position - span);
+  }
+
+  function predictedImpactY(agent) {
+    if (agent.ballVx >= -0.01) return agent.ballY;
+    const targetX = PADDLE_X + PADDLE_WIDTH + BALL_RADIUS;
+    const framesToPaddle = Math.max(0, (agent.ballX - targetX) / Math.abs(agent.ballVx));
+    return reflectY(agent.ballY + agent.ballVy * framesToPaddle);
+  }
 
   function resetPong(agent) {
-    agent.paddleY = HEIGHT / 2 - PADDLE_HEIGHT / 2;
-    agent.ballX = WIDTH * 0.68;
+    const height = paddleHeight();
+    const speed = ballSpeed();
+    agent.paddleY = HEIGHT / 2 - height / 2;
+    agent.ballX = WIDTH * (0.62 + Math.random() * 0.18);
     agent.ballY = HEIGHT * (0.28 + Math.random() * 0.44);
-    agent.ballVx = -BALL_SPEED;
-    agent.ballVy = (Math.random() * 2 - 1) * 3.4;
+    agent.ballVx = -speed;
+    agent.ballVy = (Math.random() * 2 - 1) * speed * 0.58;
     agent.alive = true;
     agent.fitness = 0;
     agent.score = 0;
     agent.age = 0;
-    agent.lastDistance = Math.abs(agent.ballY - (agent.paddleY + PADDLE_HEIGHT / 2));
+    agent.lastImpactDistance = Math.abs(predictedImpactY(agent) - (agent.paddleY + height / 2));
+    agent.pendingAction = 1;
   }
 
   function inputsFor(agent) {
-    const paddleCenter = agent.paddleY + PADDLE_HEIGHT / 2;
+    const height = paddleHeight();
+    const paddleCenter = agent.paddleY + height / 2;
+    const impactY = predictedImpactY(agent);
     return [
       paddleCenter / HEIGHT,
       agent.ballX / WIDTH,
       agent.ballY / HEIGHT,
-      agent.ballVx / 9,
-      agent.ballVy / 9,
+      agent.ballVx / 10,
+      agent.ballVy / 10,
       (agent.ballY - paddleCenter) / HEIGHT,
+      (impactY - paddleCenter) / HEIGHT,
+      agent.ballVx < 0 ? 1 : 0,
     ];
   }
 
@@ -1438,61 +1026,80 @@ function createPongGame() {
   }
 
   function applyPaddleAction(agent, action) {
+    const height = paddleHeight();
     if (action === 0) agent.paddleY -= PADDLE_SPEED;
     if (action === 2) agent.paddleY += PADDLE_SPEED;
-    agent.paddleY = clamp(agent.paddleY, 18, HEIGHT - 18 - PADDLE_HEIGHT);
+    agent.paddleY = clamp(agent.paddleY, TOP_WALL, BOTTOM_WALL - height);
   }
 
   function updatePong(agent, action) {
     if (!agent.alive) return;
+
+    const height = paddleHeight();
+    const beforeCenter = agent.paddleY + height / 2;
+    const beforeImpact = predictedImpactY(agent);
+    const beforeImpactDistance = Math.abs(beforeImpact - beforeCenter);
+    const incoming = agent.ballVx < 0;
+    const desiredAction = beforeImpact < beforeCenter - 8 ? 0 : beforeImpact > beforeCenter + 8 ? 2 : 1;
 
     applyPaddleAction(agent, action);
     agent.ballX += agent.ballVx;
     agent.ballY += agent.ballVy;
     agent.age += 1;
 
-    if (agent.ballY - BALL_RADIUS < 18) {
-      agent.ballY = 18 + BALL_RADIUS;
+    if (agent.ballY - BALL_RADIUS < TOP_WALL) {
+      agent.ballY = TOP_WALL + BALL_RADIUS;
       agent.ballVy = Math.abs(agent.ballVy);
     }
-    if (agent.ballY + BALL_RADIUS > HEIGHT - 18) {
-      agent.ballY = HEIGHT - 18 - BALL_RADIUS;
+    if (agent.ballY + BALL_RADIUS > BOTTOM_WALL) {
+      agent.ballY = BOTTOM_WALL - BALL_RADIUS;
       agent.ballVy = -Math.abs(agent.ballVy);
     }
-    if (agent.ballX + BALL_RADIUS > WIDTH - 28) {
-      agent.ballX = WIDTH - 28 - BALL_RADIUS;
+    if (agent.ballX + BALL_RADIUS > RIGHT_WALL) {
+      agent.ballX = RIGHT_WALL - BALL_RADIUS;
       agent.ballVx = -Math.abs(agent.ballVx);
     }
 
-    const paddleCenter = agent.paddleY + PADDLE_HEIGHT / 2;
-    const distance = Math.abs(agent.ballY - paddleCenter);
-    agent.fitness += 1 + Math.max(0, 1 - distance / 240) * 3;
-    if (distance < agent.lastDistance) agent.fitness += 2;
-    agent.lastDistance = distance;
+    const paddleCenter = agent.paddleY + height / 2;
+    const impactY = predictedImpactY(agent);
+    const impactDistance = Math.abs(impactY - paddleCenter);
+    const ballDistance = Math.abs(agent.ballY - paddleCenter);
+    agent.fitness += incoming ? 0.6 : 0.2;
+
+    if (incoming) {
+      agent.fitness += Math.max(0, 1 - impactDistance / (height * 1.7)) * 10;
+      agent.fitness += action === desiredAction ? 5 : -3.5;
+      if (impactDistance < beforeImpactDistance) agent.fitness += 4;
+      else agent.fitness -= 1.5;
+    } else {
+      agent.fitness += Math.max(0, 1 - ballDistance / 260);
+    }
+
+    agent.lastImpactDistance = impactDistance;
 
     const hitsPaddleX =
       agent.ballVx < 0 &&
       agent.ballX - BALL_RADIUS <= PADDLE_X + PADDLE_WIDTH &&
       agent.ballX + BALL_RADIUS >= PADDLE_X;
-    const hitsPaddleY = agent.ballY >= agent.paddleY && agent.ballY <= agent.paddleY + PADDLE_HEIGHT;
+    const hitsPaddleY = agent.ballY >= agent.paddleY && agent.ballY <= agent.paddleY + height;
 
     if (hitsPaddleX && hitsPaddleY) {
-      const offset = (agent.ballY - paddleCenter) / (PADDLE_HEIGHT / 2);
+      const offset = clamp((agent.ballY - paddleCenter) / (height / 2), -1, 1);
       agent.ballX = PADDLE_X + PADDLE_WIDTH + BALL_RADIUS;
-      agent.ballVx = Math.abs(agent.ballVx) + 0.18;
-      agent.ballVy = clamp(agent.ballVy + offset * 2.4, -7.2, 7.2);
+      agent.ballVx = Math.min(Math.abs(agent.ballVx) + 0.14, ballSpeed() + 2.4);
+      agent.ballVy = clamp(agent.ballVy + offset * 2.6, -8.2, 8.2);
       agent.score += 1;
-      agent.fitness += 850 + agent.score * 120;
+      agent.fitness += 1200 + agent.score * 180 + Math.max(0, 1 - Math.abs(offset)) * 180;
     }
 
     if (agent.ballX + BALL_RADIUS < 0) {
       agent.alive = false;
-      agent.fitness -= 180 + distance;
+      agent.fitness -= 450 + impactDistance * 2;
     }
 
-    if (agent.age >= MAX_RALLY_FRAMES) {
+    if (agent.age >= rallyLimit()) {
       agent.alive = false;
-      agent.fitness += 500 + agent.score * 80;
+      agent.fitness += 700 + agent.score * 120;
     }
   }
 
@@ -1510,7 +1117,10 @@ function createPongGame() {
     targetCtx.setLineDash([]);
 
     targetCtx.fillStyle = "#f7faf8";
-    targetCtx.fillRect(PADDLE_X, agent.paddleY, PADDLE_WIDTH, PADDLE_HEIGHT);
+    const height = paddleHeight();
+    const impactY = predictedImpactY(agent);
+
+    targetCtx.fillRect(PADDLE_X, agent.paddleY, PADDLE_WIDTH, height);
     targetCtx.fillRect(WIDTH - 32, 24, 8, HEIGHT - 48);
 
     targetCtx.fillStyle = "#f2c14e";
@@ -1520,9 +1130,19 @@ function createPongGame() {
 
     targetCtx.strokeStyle = "rgba(242,193,78,0.32)";
     targetCtx.beginPath();
-    targetCtx.moveTo(PADDLE_X + PADDLE_WIDTH, agent.paddleY + PADDLE_HEIGHT / 2);
+    targetCtx.moveTo(PADDLE_X + PADDLE_WIDTH, agent.paddleY + height / 2);
     targetCtx.lineTo(agent.ballX, agent.ballY);
     targetCtx.stroke();
+
+    if (agent.ballVx < 0) {
+      targetCtx.strokeStyle = "rgba(255,255,255,0.28)";
+      targetCtx.setLineDash([6, 8]);
+      targetCtx.beginPath();
+      targetCtx.moveTo(PADDLE_X + PADDLE_WIDTH + BALL_RADIUS, impactY);
+      targetCtx.lineTo(agent.ballX, agent.ballY);
+      targetCtx.stroke();
+      targetCtx.setLineDash([]);
+    }
 
     drawScoreBadge(targetCtx, currentScore);
     drawCrashOverlay(targetCtx, mode, agent, "Press an arrow key or Reset to play again");
@@ -1534,13 +1154,13 @@ function createPongGame() {
     objective: "Les agents apprennent a placer le paddle pour renvoyer la balle le plus longtemps possible.",
     hint: "IA: un specimen joue un rally complet, puis le suivant est teste. Humain: fleches ou WASD.",
     sequential: true,
-    defaultSpeed: 10,
-    maxSpeed: 40,
-    speedLabel: "Rally speed",
+    defaultSpeed: 14,
+    maxSpeed: 55,
+    speedLabel: "Training speed",
     populationLabel: "Specimens",
     leaderFitnessLabel: "Current specimen",
-    inputs: 6,
-    hidden: DEFAULT_HIDDEN,
+    inputs: 8,
+    hidden: 9,
     outputs: 3,
     inputLabels: PONG_INPUT_LABELS,
     outputLabels: ["up", "stay", "down"],
@@ -1561,12 +1181,13 @@ function createPongGame() {
         fitness: 0,
         score: 0,
         age: 0,
-        paddleY: HEIGHT / 2 - PADDLE_HEIGHT / 2,
+        paddleY: HEIGHT / 2 - paddleHeight() / 2,
         ballX: WIDTH * 0.68,
         ballY: HEIGHT / 2,
-        ballVx: -BALL_SPEED,
+        ballVx: -ballSpeed(),
         ballVy: 0,
-        lastDistance: 0,
+        lastImpactDistance: 0,
+        pendingAction: 1,
       };
     },
     makeHumanAgent(id) {
@@ -1611,7 +1232,7 @@ function createPongGame() {
     },
     distanceMetric(agent) {
       if (!agent) return 0;
-      return Math.round(Math.abs(agent.ballY - (agent.paddleY + PADDLE_HEIGHT / 2)));
+      return Math.round(Math.abs(predictedImpactY(agent) - (agent.paddleY + paddleHeight() / 2)));
     },
     draw(targetCtx, targetWorld, visibleAgents, mode, currentScore) {
       const agent = visibleAgents[0];
@@ -1659,7 +1280,6 @@ ui.reset.addEventListener("click", resetAll);
 ui.modeAi.addEventListener("click", () => setMode("ai"));
 ui.modeHuman.addEventListener("click", () => setMode("human"));
 ui.gamePipe.addEventListener("click", () => setGame("pipe"));
-ui.gameSnake.addEventListener("click", () => setGame("snake"));
 ui.gamePong.addEventListener("click", () => setGame("pong"));
 ui.speed.addEventListener("input", () => {
   ui.speedValue.textContent = `${ui.speed.value}x`;
@@ -1677,8 +1297,10 @@ ui.pipeSpacing.addEventListener("change", () => {
   ui.preset.value = "custom";
   resetAll();
 });
-ui.snakeGrid.addEventListener("change", resetAll);
-ui.snakePatience.addEventListener("change", resetAll);
+for (const control of [ui.pongBallSpeed, ui.pongPaddleSize, ui.pongRallyLength]) {
+  control.addEventListener("input", updatePongSettingOutputs);
+  control.addEventListener("change", resetAll);
+}
 ui.preset.addEventListener("change", () => applyPreset(ui.preset.value));
 ui.saveChampion.addEventListener("click", saveChampion);
 ui.loadChampion.addEventListener("click", loadChampion);
