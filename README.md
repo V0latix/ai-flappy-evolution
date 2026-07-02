@@ -45,9 +45,11 @@ landing success and useful partial behavior: moving toward the pad, slowing
 descent, staying upright, and saving fuel.
 Lunar gravity is configured as a fraction of Earth gravity: the default `0.17g`
 is close to the Moon's gravity.
-The Lunar fitness also weights positive rewards by pad difficulty: landing or
-making controlled progress toward a pad near an edge is worth more than the same
-behavior on a central pad.
+The Lunar fitness also weights target-oriented rewards by pad difficulty:
+landing, moving toward, or matching a useful horizontal velocity for a pad near
+an edge is worth more than the same behavior on a central pad. Generic survival
+and stability rewards are not difficulty-weighted, and wall-hugging away from
+the target is penalized.
 
 ## Next Game Ideas
 

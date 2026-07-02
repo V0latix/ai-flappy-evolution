@@ -1041,7 +1041,7 @@ function createLunarGame() {
   function padDifficultyMultiplier(targetWorld) {
     const maxOffset = Math.max(1, WIDTH / 2 - targetWorld.pad.width / 2);
     const normalizedOffset = Math.abs(targetWorld.pad.x - WIDTH / 2) / maxOffset;
-    return 1 + clamp(normalizedOffset, 0, 1) * 0.85;
+    return 1 + clamp(normalizedOffset, 0, 1) * 0.55;
   }
 
   function inputsFor(agent, targetWorld) {
@@ -1129,15 +1129,28 @@ function createLunarGame() {
     const angleAbs = Math.abs(agent.angle);
     const distance = distanceToPad(agent, targetWorld);
     const approach = previousDistance - distance;
+    const signedPadDx = targetWorld.pad.x - agent.x;
+    const desiredVx = clamp(signedPadDx / 260, -1.35, 1.35);
+    const velocityError = Math.abs(agent.vx - desiredVx);
+    const wallDistance = Math.min(agent.x, WIDTH - agent.x);
+    const wallPenalty = Math.max(0, 1 - wallDistance / 90);
     const padDifficulty = padDifficultyMultiplier(targetWorld);
-    let controlReward = 1;
-    controlReward += Math.max(0, 1 - padDx / 430) * 2.4;
-    controlReward += Math.max(0, 1 - speed / 4.2) * 2.1;
-    controlReward += Math.max(0, 1 - Math.abs(agent.vy) / 3.8) * 1.7;
-    controlReward += Math.max(0, 1 - angleAbs / 1.2) * 1.6;
-    if (approach > 0) controlReward += approach * 0.08;
+    let controlReward = 0.8;
+    controlReward += Math.max(0, 1 - speed / 4.2) * 1.3;
+    controlReward += Math.max(0, 1 - Math.abs(agent.vy) / 3.8) * 1.3;
+    controlReward += Math.max(0, 1 - angleAbs / 1.2) * 1.2;
+    let targetReward = 0;
+    targetReward += Math.max(0, 1 - padDx / 430) * 3.0;
+    targetReward += Math.max(0, 1 - velocityError / 2.4) * 2.4;
+    if (approach > 0) targetReward += approach * 0.12;
     agent.lastDistance = distance;
-    agent.fitness += controlReward * padDifficulty;
+    agent.fitness += controlReward + targetReward * padDifficulty;
+    if (padDx > targetWorld.pad.width / 2 && agent.vx * signedPadDx < -0.08) {
+      agent.fitness -= Math.min(2.6, Math.abs(agent.vx) * 0.9);
+    }
+    if (padDx > targetWorld.pad.width + 70) {
+      agent.fitness -= wallPenalty * 2.8;
+    }
     if (controls.thrust) agent.fitness -= 0.16;
 
     if (agent.y + LANDER_HEIGHT / 2 >= MOON_Y) {

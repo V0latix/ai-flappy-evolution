@@ -319,7 +319,10 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /agent\.x = WIDTH \/ 2/);
   assert.match(script, /function padDifficultyMultiplier\(targetWorld\)/);
   assert.match(script, /normalizedOffset/);
-  assert.match(script, /controlReward \* padDifficulty/);
+  assert.match(script, /const desiredVx = clamp\(signedPadDx \/ 260, -1\.35, 1\.35\)/);
+  assert.match(script, /targetReward \* padDifficulty/);
+  assert.match(script, /agent\.vx \* signedPadDx < -0\.08/);
+  assert.match(script, /wallPenalty \* 2\.8/);
   assert.match(script, /resetLander\(agent, targetWorld, false\)/);
   assert.match(script, /next gap/);
   assert.match(script, /pad dx/);
