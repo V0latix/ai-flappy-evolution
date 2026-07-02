@@ -972,6 +972,16 @@ function createPongGame() {
     return clamp(numberValue(ui.pongBallSpeed, 4.8), 3.8, 7.2);
   }
 
+  function activePaddleHeight(agent) {
+    const baseHeight = paddleHeight();
+    if (!agent) return baseHeight;
+    return clamp(baseHeight - agent.score * 3.8, 38, baseHeight);
+  }
+
+  function ballSpeedLimit(agent) {
+    return ballSpeed() + 1.8 + Math.min(agent.score * 0.14, 4.8);
+  }
+
   function verticalBounds() {
     return {
       top: TOP_WALL + BALL_RADIUS,
@@ -1002,7 +1012,7 @@ function createPongGame() {
   }
 
   function actionTowardImpact(agent, impactY = predictedImpactY(agent)) {
-    const center = agent.paddleY + paddleHeight() / 2;
+    const center = agent.paddleY + activePaddleHeight(agent) / 2;
     if (impactY < center - 6) return 0;
     if (impactY > center + 6) return 2;
     return 1;
@@ -1011,18 +1021,18 @@ function createPongGame() {
   function trackingGenome(config) {
     const genome = Array.from({ length: genomeLength(config) }, () => 0);
     const hiddenStride = config.inputs + 1;
-    genome[6] = -9;
-    genome[config.inputs] = -0.25;
-    genome[hiddenStride + 6] = 9;
-    genome[hiddenStride + config.inputs] = -0.25;
+    genome[0] = 5.2;
+    genome[2] = -5.2;
+    genome[hiddenStride] = -5.2;
+    genome[hiddenStride + 2] = 5.2;
 
     const outputStart = config.inputs * config.hidden + config.hidden;
     const outputStride = config.hidden + 1;
-    genome[outputStart] = 4.2;
-    genome[outputStart + config.hidden] = -0.35;
+    genome[outputStart] = 3.4;
+    genome[outputStart + config.hidden] = -0.25;
     genome[outputStart + outputStride + config.hidden] = 0.25;
-    genome[outputStart + outputStride * 2 + 1] = 4.2;
-    genome[outputStart + outputStride * 2 + config.hidden] = -0.35;
+    genome[outputStart + outputStride * 2 + 1] = 3.4;
+    genome[outputStart + outputStride * 2 + config.hidden] = -0.25;
     return genome;
   }
 
@@ -1043,7 +1053,7 @@ function createPongGame() {
   }
 
   function inputsFor(agent) {
-    const height = paddleHeight();
+    const height = activePaddleHeight(agent);
     const paddleCenter = agent.paddleY + height / 2;
     const impactY = predictedImpactY(agent);
     return [
@@ -1064,7 +1074,7 @@ function createPongGame() {
   }
 
   function applyPaddleAction(agent, action) {
-    const height = paddleHeight();
+    const height = activePaddleHeight(agent);
     if (action === 0) agent.paddleY -= PADDLE_SPEED;
     if (action === 2) agent.paddleY += PADDLE_SPEED;
     agent.paddleY = clamp(agent.paddleY, TOP_WALL, BOTTOM_WALL - height);
@@ -1073,7 +1083,7 @@ function createPongGame() {
   function updatePong(agent, action = 1) {
     if (!agent.alive) return;
 
-    const height = paddleHeight();
+    const height = activePaddleHeight(agent);
     const beforeCenter = agent.paddleY + height / 2;
     const beforeImpact = predictedImpactY(agent);
     const beforeImpactDistance = Math.abs(beforeImpact - beforeCenter);
@@ -1096,6 +1106,7 @@ function createPongGame() {
     if (agent.ballX + BALL_RADIUS > RIGHT_WALL) {
       agent.ballX = RIGHT_WALL - BALL_RADIUS;
       agent.ballVx = -Math.abs(agent.ballVx);
+      agent.ballVy = clamp(agent.ballVy + (Math.random() * 2 - 1) * 1.15, -10.4, 10.4);
     }
 
     const paddleCenter = agent.paddleY + height / 2;
@@ -1124,9 +1135,9 @@ function createPongGame() {
     if (hitsPaddleX && hitsPaddleY) {
       const offset = clamp((agent.ballY - paddleCenter) / (height / 2), -1, 1);
       agent.ballX = PADDLE_X + PADDLE_WIDTH + BALL_RADIUS;
-      agent.ballVx = Math.min(Math.abs(agent.ballVx) + 0.14, ballSpeed() + 2.4);
-      agent.ballVy = clamp(agent.ballVy + offset * 2.6, -8.2, 8.2);
       agent.score += 1;
+      agent.ballVx = Math.min(Math.abs(agent.ballVx) + 0.42, ballSpeedLimit(agent));
+      agent.ballVy = clamp(agent.ballVy + offset * 3.4 + (Math.random() * 2 - 1) * 1.2, -10.4, 10.4);
       agent.fitness += 1200 + agent.score * 180 + Math.max(0, 1 - Math.abs(offset)) * 180;
     }
 
@@ -1150,7 +1161,7 @@ function createPongGame() {
     targetCtx.setLineDash([]);
 
     targetCtx.fillStyle = "#f7faf8";
-    const height = paddleHeight();
+    const height = activePaddleHeight(agent);
     const impactY = predictedImpactY(agent);
 
     targetCtx.fillRect(PADDLE_X, agent.paddleY, PADDLE_WIDTH, height);
@@ -1219,7 +1230,7 @@ function createPongGame() {
         fitness: 0,
         score: 0,
         age: 0,
-        paddleY: HEIGHT / 2 - paddleHeight() / 2,
+      paddleY: HEIGHT / 2 - paddleHeight() / 2,
         ballX: WIDTH * 0.68,
         ballY: HEIGHT / 2,
         ballVx: -ballSpeed(),
@@ -1270,7 +1281,7 @@ function createPongGame() {
     },
     distanceMetric(agent) {
       if (!agent) return 0;
-      return Math.round(Math.abs(predictedImpactY(agent) - (agent.paddleY + paddleHeight() / 2)));
+      return Math.round(Math.abs(predictedImpactY(agent) - (agent.paddleY + activePaddleHeight(agent) / 2)));
     },
     draw(targetCtx, targetWorld, visibleAgents, mode, currentScore) {
       const agent = visibleAgents[0];

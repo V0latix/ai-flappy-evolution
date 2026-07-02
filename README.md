@@ -40,9 +40,11 @@ impact position at the paddle line, impact distance, and time to impact. The
 network chooses one of three discrete actions: move up, stay, or move down.
 Pong is a strong fit for this app because the reward is immediate and visual:
 choose the right direction, align with the predicted trajectory, return the
-ball, repeat. Pong also starts with a simple directional tracking genome so
-evolution has a useful baseline to mutate instead of waiting for a random
-population to discover paddle tracking from scratch.
+ball, repeat. Pong starts with a deliberately imperfect ball-following genome:
+it can sometimes survive, but it does not directly use the predicted impact
+signal. Evolution has to discover that stronger behavior through selection and
+mutation. Each return also increases the challenge by varying the trajectory,
+speeding up the ball, and shrinking the active paddle.
 
 ## Next Game Ideas
 
