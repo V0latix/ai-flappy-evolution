@@ -25,8 +25,8 @@ The app currently runs entirely in the browser and includes:
   for Lunar Lander
 - Local champion save/load via browser storage
 - Flappy Bird difficulty presets for gap, spacing, speed, and mutation
-- Lunar-specific sliders for gravity, initial fuel, platform size, and engine
-  power
+- Lunar-specific sliders for gravity in Earth-g units, initial fuel, platform
+  size, and engine power
 
 ## Game Modules
 
@@ -43,6 +43,8 @@ The visible score is the total number of successful landings in the generation.
 Fitness is cumulative across all attempts, so a specimen is selected for both
 landing success and useful partial behavior: moving toward the pad, slowing
 descent, staying upright, and saving fuel.
+Lunar gravity is configured as a fraction of Earth gravity: the default `0.17g`
+is close to the Moon's gravity.
 
 ## Next Game Ideas
 
@@ -97,7 +99,8 @@ environment.
 - `Espacement tuyaux`: change the horizontal distance between consecutive pipes
   These pipe controls are only visible for Flappy Bird.
 - `Human play`: switch to manual play, then press `Space` to flap
-- `Gravite`: change Lunar Lander gravity and restart Lunar training
+- `Gravite lunaire`: change Lunar gravity as a fraction of Earth gravity and
+  restart Lunar training
 - `Fuel initial`: change Lunar Lander starting fuel and restart Lunar training
 - `Taille plateforme`: change the Lunar landing platform width
 - `Puissance moteur`: change Lunar Lander thrust strength

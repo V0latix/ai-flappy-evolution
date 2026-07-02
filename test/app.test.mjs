@@ -296,6 +296,7 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(html, /Flappy Bird/);
   assert.match(html, /Lunar Lander/);
   assert.match(favicon, /<svg/);
+  assert.match(favicon, /Neuro Evolution Arcade/);
   assert.match(favicon, /#1a56db/);
   assert.doesNotMatch(html, /Vol, timing, tuyaux/);
   assert.doesNotMatch(html, /Fuel, angle, touchdown/);
@@ -311,9 +312,11 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /scoreMetric\(nextAgents\)/);
   assert.match(script, /agent\.score \+= 1/);
   assert.match(script, /const MAX_ATTEMPTS = 5/);
-  assert.match(script, /const PAD_EDGE_BUFFER = LANDER_WIDTH \+ 20/);
-  assert.match(script, /launchXForPad\(targetWorld\)/);
-  assert.match(script, /targetWorld\.pad\.x - driftRange/);
+  assert.match(script, /const EARTH_GRAVITY_ACCEL = 0\.42/);
+  assert.match(script, /lunarGravityG\(\) \* EARTH_GRAVITY_ACCEL/);
+  assert.match(script, /const SIDE_THRUST_ASSIST = 1\.55/);
+  assert.match(script, /const margin = width \/ 2/);
+  assert.match(script, /agent\.x = WIDTH \/ 2/);
   assert.match(script, /resetLander\(agent, targetWorld, false\)/);
   assert.match(script, /next gap/);
   assert.match(script, /pad dx/);
@@ -371,7 +374,7 @@ test("game picker switches to Lunar Lander with dedicated sliders and network sh
   assert.equal(element(harness, "distanceLabel").textContent, "Pad distance");
   assert.equal(element(harness, "speed").value, 7);
   assert.equal(element(harness, "speed").max, 28);
-  assert.equal(element(harness, "lunarGravityValue").textContent, "0.070");
+  assert.equal(element(harness, "lunarGravityValue").textContent, "0.17g");
   assert.equal(element(harness, "lunarFuelValue").textContent, "120");
   assert.equal(element(harness, "lunarPadSizeValue").textContent, "150");
   assert.equal(element(harness, "lunarThrustValue").textContent, "0.145");
@@ -549,9 +552,9 @@ test("Lunar-specific sliders reset Lunar without exposing other game settings", 
   harness.runFrame();
   assert.equal(element(harness, "generation").textContent, 2);
 
-  element(harness, "lunarGravity").value = "0.085";
+  element(harness, "lunarGravity").value = "0.24";
   element(harness, "lunarGravity").dispatchEvent({ type: "input" });
-  assert.equal(element(harness, "lunarGravityValue").textContent, "0.085");
+  assert.equal(element(harness, "lunarGravityValue").textContent, "0.24g");
   element(harness, "lunarGravity").dispatchEvent({ type: "change" });
   harness.runFrame();
 

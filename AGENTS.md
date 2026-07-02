@@ -81,8 +81,9 @@ and champion storage keys.
 - Pipe gap and pipe spacing reset the current run so one generation is not
   scored across mixed difficulty settings.
 - Lunar Lander Lite uses a dedicated settings panel for gravity, initial fuel,
-  platform size, and engine power. These controls must be hidden for Flappy Bird,
-  and changing them should reset Lunar training.
+  platform size, and engine power. The gravity slider is expressed as a fraction
+  of Earth gravity, so the default Moon-like value is `0.17g`. These controls
+  must be hidden for Flappy Bird, and changing them should reset Lunar training.
 - Flappy Bird pipe controls (`pipeSettings`, `pipeGap`, `pipeSpacing`, and
   `presetPanel`) must be visible only for Flappy Bird. Lunar should never show
   pipe sliders.
@@ -90,9 +91,10 @@ and champion storage keys.
   `fuel`, `pad dx`, `spin`) and three outputs (`thrust`, `left`, `right`).
   Each specimen can play up to five attempts per generation, stopping early on
   a successful landing. The displayed score is the total successful landings in
-  the generation, while fitness is cumulative across attempts. Keep its physics,
-  fitness shaping, slider tests, score metric tests, and champion compatibility
-  tests in sync.
+  the generation, while fitness is cumulative across attempts. Landers should
+  spawn from the center of the simulation, while pads may appear across the full
+  visible width. Keep its physics, fitness shaping, slider tests, score metric
+  tests, and champion compatibility tests in sync.
 - Saved Flappy Bird champions are stored in `localStorage` under the historical
   `neuro-evolution-arcade.pipe-runner.champion`.
 - The previous key `neuro-evolution-arcade.flappy.champion` and legacy key
