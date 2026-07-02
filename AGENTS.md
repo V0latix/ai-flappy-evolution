@@ -4,7 +4,7 @@
 
 Neuro Evolution Arcade is a static browser app for training neural-network
 agents on small arcade games through neuroevolution. It currently includes
-Pipe Runner and Snake, and the codebase should continue evolving as a
+Flappy Bird and Snake, and the codebase should continue evolving as a
 multi-game lab.
 
 The app has no build step and no runtime dependencies. It is served directly
@@ -66,7 +66,7 @@ boundaries:
 - Tests for boot, controls, scoring, and reset behavior
 
 Avoid hard-coding game-specific concepts into shared neuroevolution logic when
-adding the next game. Pipe Runner and Snake now each define their own
+adding the next game. Flappy Bird and Snake now each define their own
 observation vector, action mapping, fitness function, rendering, human controls,
 and champion storage keys.
 
@@ -81,14 +81,14 @@ and champion storage keys.
 - Snake uses sequential evaluation. Only one specimen is active at a time; when
   it dies, the next specimen starts a fresh Snake board. The generation evolves
   only after every specimen has been evaluated.
-- Snake's right-side controls intentionally differ from Pipe Runner: the metric
+- Snake's right-side controls intentionally differ from Flappy Bird: the metric
   label changes to `Specimen`, the speed slider has a higher maximum, and pipe
   presets are hidden.
 - Pipe gap and pipe spacing reset the current run so one generation is not
   scored across mixed difficulty settings.
 - Snake grid size and food patience reset the current Snake run for the same
   reason.
-- Saved pipe-runner champions are stored in `localStorage` under
+- Saved Flappy Bird champions are stored in `localStorage` under the historical
   `neuro-evolution-arcade.pipe-runner.champion`.
 - The previous key `neuro-evolution-arcade.flappy.champion` and legacy key
   `ai-flappy-evolution.champion` should remain loadable while older browser

@@ -68,15 +68,15 @@ const PRESETS = {
 
 const PIPE_INPUT_LABELS = ["height", "velocity", "pipe x", "gap top", "gap bottom", "next gap"];
 const SNAKE_INPUT_LABELS = [
-  "danger F",
-  "danger L",
+  "danger U",
   "danger R",
-  "food F",
-  "food L",
-  "food R",
-  "space F",
-  "space L",
-  "space R",
+  "danger D",
+  "danger L",
+  "food x",
+  "food y",
+  "dir x",
+  "dir y",
+  "stale",
   "length",
 ];
 
@@ -824,7 +824,7 @@ function createPipeGame() {
 
   return {
     key: "pipe",
-    title: "Pipe Runner",
+    title: "Flappy Bird",
     objective: "Les agents apprennent a passer entre deux tuyaux en anticipant le passage actuel et le suivant.",
     hint: "IA: evolution automatique. Humain: Espace pour battre des ailes.",
     sequential: false,
@@ -846,8 +846,8 @@ function createPipeGame() {
       PIPE_PREVIOUS_CHAMPION_STORAGE_KEY,
       PIPE_LEGACY_CHAMPION_STORAGE_KEY,
     ],
-    defaultChampionStatus: "No Pipe Runner champion saved yet.",
-    humanNetworkMessage: "Switch to AI training to view the pipe-runner network.",
+    defaultChampionStatus: "No Flappy Bird champion saved yet.",
+    humanNetworkMessage: "Switch to AI training to view the Flappy Bird network.",
     createWorld() {
       const targetWorld = { pipes: [] };
       resetPipes(targetWorld);
@@ -1000,18 +1000,19 @@ function createSnakeGame() {
     agent.score = 0;
     agent.age = 0;
     agent.stepsSinceFood = 0;
+    agent.staleSteps = 0;
+    agent.bestFoodDistance = manhattan(agent.body[0], agent.food);
     agent.lastAction = 1;
     agent.repeatedTurnCount = 0;
     agent.visitCounts = new Map(agent.body.map((part) => [`${part.x},${part.y}`, 1]));
   }
 
-  function turnLeft(dir) {
-    return { x: dir.y, y: -dir.x };
-  }
-
-  function turnRight(dir) {
-    return { x: -dir.y, y: dir.x };
-  }
+  const DIRECTIONS = [
+    { x: 0, y: -1, label: "up" },
+    { x: 1, y: 0, label: "right" },
+    { x: 0, y: 1, label: "down" },
+    { x: -1, y: 0, label: "left" },
+  ];
 
   function nextHead(agent, dir = agent.dir) {
     return {
@@ -1029,72 +1030,51 @@ function createSnakeGame() {
     return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
   }
 
-  function directionalFood(agent, targetWorld, dir) {
-    const head = agent.body[0];
-    const dx = agent.food.x - head.x;
-    const dy = agent.food.y - head.y;
-    return (dx * dir.x + dy * dir.y) / Math.max(targetWorld.cols, targetWorld.rows);
-  }
-
-  function openSpace(agent, targetWorld, dir) {
-    let cursor = { ...agent.body[0] };
-    let distance = 0;
-    while (true) {
-      cursor = { x: cursor.x + dir.x, y: cursor.y + dir.y };
-      if (hitsWallOrBody(cursor, agent, targetWorld)) break;
-      distance += 1;
-    }
-    return distance / Math.max(targetWorld.cols, targetWorld.rows);
+  function isReverse(a, b) {
+    return a.x + b.x === 0 && a.y + b.y === 0;
   }
 
   function inputsFor(agent, targetWorld) {
-    const left = turnLeft(agent.dir);
-    const right = turnRight(agent.dir);
+    const head = agent.body[0];
     return [
-      hitsWallOrBody(nextHead(agent), agent, targetWorld) ? 1 : 0,
-      hitsWallOrBody(nextHead(agent, left), agent, targetWorld) ? 1 : 0,
-      hitsWallOrBody(nextHead(agent, right), agent, targetWorld) ? 1 : 0,
-      directionalFood(agent, targetWorld, agent.dir),
-      directionalFood(agent, targetWorld, left),
-      directionalFood(agent, targetWorld, right),
-      openSpace(agent, targetWorld, agent.dir),
-      openSpace(agent, targetWorld, left),
-      openSpace(agent, targetWorld, right),
+      hitsWallOrBody(nextHead(agent, DIRECTIONS[0]), agent, targetWorld) ? 1 : 0,
+      hitsWallOrBody(nextHead(agent, DIRECTIONS[1]), agent, targetWorld) ? 1 : 0,
+      hitsWallOrBody(nextHead(agent, DIRECTIONS[2]), agent, targetWorld) ? 1 : 0,
+      hitsWallOrBody(nextHead(agent, DIRECTIONS[3]), agent, targetWorld) ? 1 : 0,
+      (agent.food.x - head.x) / targetWorld.cols,
+      (agent.food.y - head.y) / targetWorld.rows,
+      agent.dir.x,
+      agent.dir.y,
+      agent.staleSteps / patienceLimit(),
       agent.body.length / (targetWorld.cols * targetWorld.rows),
     ];
   }
 
   function chooseAction(agent, targetWorld) {
     const outputs = feedForward(agent.genome, inputsFor(agent, targetWorld));
-    return outputs.indexOf(Math.max(...outputs));
+    return outputs
+      .map((value, index) => ({ index, value }))
+      .sort((a, b) => b.value - a.value)
+      .find((choice) => !isReverse(DIRECTIONS[choice.index], agent.dir))?.index ?? 1;
   }
 
-  function updateSnake(agent, targetWorld, action = 1) {
+  function updateSnake(agent, targetWorld, action = null) {
     if (!agent.alive) return;
 
     const previousDistance = manhattan(agent.body[0], agent.food);
-    if (action === agent.lastAction && action !== 1) {
-      agent.repeatedTurnCount += 1;
-    } else {
-      agent.repeatedTurnCount = 0;
+    if (action !== null) {
+      const nextDirection = DIRECTIONS[action] || DIRECTIONS[1];
+      if (!isReverse(nextDirection, agent.dir)) agent.dir = { x: nextDirection.x, y: nextDirection.y };
     }
-    agent.lastAction = action;
-
-    if (action === 0) agent.dir = turnLeft(agent.dir);
-    if (action === 2) agent.dir = turnRight(agent.dir);
 
     const head = nextHead(agent);
     agent.age += 1;
     agent.stepsSinceFood += 1;
-    agent.fitness += 1;
-    if (agent.repeatedTurnCount > 2) {
-      agent.fitness -= 10 * agent.repeatedTurnCount;
-      agent.stepsSinceFood += 2;
-    }
+    agent.staleSteps += 1;
 
     if (hitsWallOrBody(head, agent, targetWorld)) {
       agent.alive = false;
-      agent.fitness -= 30;
+      agent.fitness -= 140;
       return;
     }
 
@@ -1102,32 +1082,42 @@ function createSnakeGame() {
     if (head.x === agent.food.x && head.y === agent.food.y) {
       agent.score += 1;
       agent.stepsSinceFood = 0;
-      agent.fitness += 650 + agent.body.length * 18;
+      agent.staleSteps = 0;
+      agent.fitness += 1400 + agent.score * 320 + agent.body.length * 24;
       agent.food = randomFood(agent, targetWorld);
+      agent.bestFoodDistance = manhattan(agent.body[0], agent.food);
     } else {
       agent.body.pop();
       const nextDistance = manhattan(head, agent.food);
-      agent.fitness += nextDistance < previousDistance ? 6 : -2;
+      if (nextDistance < agent.bestFoodDistance) {
+        agent.bestFoodDistance = nextDistance;
+        agent.staleSteps = 0;
+        agent.fitness += 45;
+      } else if (nextDistance < previousDistance) {
+        agent.fitness += 12;
+      } else {
+        agent.fitness -= 18;
+      }
     }
 
     const key = `${head.x},${head.y}`;
     const visitCount = (agent.visitCounts.get(key) || 0) + 1;
     agent.visitCounts.set(key, visitCount);
     if (visitCount > 1) {
-      agent.fitness -= visitCount * 5;
-      agent.stepsSinceFood += visitCount;
+      agent.fitness -= visitCount * 35;
+      agent.staleSteps += visitCount * 2;
+      agent.stepsSinceFood += visitCount * 2;
     }
 
-    if (agent.stepsSinceFood > patienceLimit()) {
+    if (agent.staleSteps > patienceLimit() || agent.stepsSinceFood > patienceLimit() * 2) {
       agent.alive = false;
-      agent.fitness -= 20;
+      agent.fitness -= 90;
     }
   }
 
   function setHumanDirection(agent, dir) {
     if (!agent || !agent.alive) return;
-    const isReverse = dir.x + agent.dir.x === 0 && dir.y + agent.dir.y === 0;
-    if (!isReverse) agent.pendingDir = dir;
+    if (!isReverse(dir, agent.dir)) agent.pendingDir = dir;
   }
 
   function drawSnake(targetCtx, agent, targetWorld, alpha = 1) {
@@ -1158,7 +1148,7 @@ function createSnakeGame() {
   return {
     key: "snake",
     title: "Snake",
-    objective: "Les agents apprennent a chercher la nourriture sans heurter les murs ni leur propre corps.",
+    objective: "Les agents apprennent a rejoindre la nourriture vite, sans heurter les murs ni revisiter les memes cases.",
     hint: "IA: un specimen joue sa partie complete, puis le suivant est teste. Humain: fleches ou WASD.",
     sequential: true,
     defaultSpeed: 18,
@@ -1168,10 +1158,10 @@ function createSnakeGame() {
     leaderFitnessLabel: "Current specimen",
     inputs: 10,
     hidden: 9,
-    outputs: 3,
+    outputs: 4,
     inputLabels: SNAKE_INPUT_LABELS,
-    outputLabels: ["left", "forward", "right"],
-    outputLabel: "Turn",
+    outputLabels: ["up", "right", "down", "left"],
+    outputLabel: "Move",
     distanceLabel: "Food distance",
     championStorageKey: SNAKE_CHAMPION_STORAGE_KEY,
     championStorageKeys: [SNAKE_CHAMPION_STORAGE_KEY],
@@ -1190,6 +1180,8 @@ function createSnakeGame() {
         score: 0,
         age: 0,
         stepsSinceFood: 0,
+        staleSteps: 0,
+        bestFoodDistance: 0,
         body: [],
         food: { x: 0, y: 0 },
         dir: { x: 1, y: 0 },
@@ -1218,8 +1210,18 @@ function createSnakeGame() {
     },
     resetHuman(agent, targetWorld) {
       resetSnake(agent, targetWorld);
+      const centerX = Math.floor(targetWorld.cols / 2);
+      const centerY = Math.floor(targetWorld.rows / 2);
       agent.dir = { x: 1, y: 0 };
       agent.pendingDir = { x: 1, y: 0 };
+      agent.body = [
+        { x: centerX, y: centerY },
+        { x: centerX - 1, y: centerY },
+        { x: centerX - 2, y: centerY },
+      ];
+      agent.food = randomFood(agent, targetWorld);
+      agent.bestFoodDistance = manhattan(agent.body[0], agent.food);
+      agent.visitCounts = new Map(agent.body.map((part) => [`${part.x},${part.y}`, 1]));
     },
     stepWorld() {},
     updateAgent(agent, targetWorld) {
@@ -1228,7 +1230,7 @@ function createSnakeGame() {
     updateHuman(agent, targetWorld) {
       if (!agent) return;
       agent.dir = { ...agent.pendingDir };
-      updateSnake(agent, targetWorld, 1);
+      updateSnake(agent, targetWorld);
     },
     humanPrimaryAction() {},
     handleHumanKey(event, agent) {

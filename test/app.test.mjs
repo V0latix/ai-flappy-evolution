@@ -285,9 +285,10 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(html, /Comment les generations apprennent/);
   assert.match(html, /Comment Snake apprend/);
   assert.match(html, /Neuro Evolution Arcade/);
+  assert.match(html, /Flappy Bird/);
   assert.match(script, /inputs: 6/);
   assert.match(script, /inputs: 10/);
-  assert.match(script, /outputLabels: \["left", "forward", "right"\]/);
+  assert.match(script, /outputLabels: \["up", "right", "down", "left"\]/);
   assert.match(script, /next gap/);
 });
 
@@ -301,6 +302,7 @@ test("module boots, draws AI network labels, and reports initial training state"
   assert.equal(element(harness, "score").textContent, 0);
   assert.equal(element(harness, "modeAi").classList.contains("is-active"), true);
   assert.equal(element(harness, "gamePipe").classList.contains("is-active"), true);
+  assert.equal(element(harness, "activeGameTitle").textContent, "Flappy Bird");
   assert.equal(element(harness, "snakeSettings").classList.contains("is-hidden"), true);
   assert.equal(element(harness, "nextGen").disabled, false);
 
@@ -341,19 +343,20 @@ test("game picker switches to Snake with its own controls and network shape", as
   const networkCalls = element(harness, "network").getContext().calls;
   const labels = networkCalls.filter((call) => call.type === "fillText").map((call) => call.text);
   assert.deepEqual(labels.slice(0, 10), [
-    "danger F",
-    "danger L",
+    "danger U",
     "danger R",
-    "food F",
-    "food L",
-    "food R",
-    "space F",
-    "space L",
-    "space R",
+    "danger D",
+    "danger L",
+    "food x",
+    "food y",
+    "dir x",
+    "dir y",
+    "stale",
     "length",
   ]);
+  assert.equal(labels.includes("up"), true);
+  assert.equal(labels.includes("down"), true);
   assert.equal(labels.includes("left"), true);
-  assert.equal(labels.includes("forward"), true);
   assert.equal(labels.includes("right"), true);
 });
 
@@ -464,9 +467,9 @@ test("Snake champions are saved under the Snake key with compatible genome lengt
   const saved = JSON.parse(harness.storage.getItem(snakeChampionStorageKey));
 
   assert.equal(saved.game, "snake");
-  assert.equal(saved.genome.length, 129);
+  assert.equal(saved.genome.length, 139);
   assert.equal(saved.inputs, 10);
-  assert.equal(saved.outputs, 3);
+  assert.equal(saved.outputs, 4);
 
   element(harness, "loadChampion").click();
   harness.runFrame();

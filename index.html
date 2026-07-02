@@ -41,7 +41,7 @@
         <div class="main-column">
           <section class="game-picker" aria-label="Game selection">
             <button id="gamePipe" class="game-tab is-active" type="button">
-              <strong>Pipe Runner</strong>
+              <strong>Flappy Bird</strong>
               <span>Vol, timing, tuyaux</span>
             </button>
             <button id="gameSnake" class="game-tab" type="button">
@@ -57,7 +57,7 @@
           <section class="panel-section game-summary">
             <div>
               <p class="eyebrow">Jeu actif</p>
-              <h2 id="activeGameTitle">Pipe Runner</h2>
+              <h2 id="activeGameTitle">Flappy Bird</h2>
             </div>
             <p id="gameObjective">
               Les agents apprennent a passer entre deux tuyaux en anticipant le passage actuel et
@@ -102,9 +102,9 @@
             <h2>Comment Snake apprend</h2>
             <p>
               Chaque snake possede un reseau neuronal different. Le reseau observe les dangers
-              devant lui, a gauche et a droite, la nourriture relative a sa direction, l'espace
-              libre devant lui et sa longueur. Il ne choisit pas une case directement : il decide
-              de tourner a gauche, continuer tout droit ou tourner a droite.
+              en haut, a droite, en bas et a gauche, la position de la nourriture, sa direction
+              actuelle, le nombre de pas sans progresser et sa longueur. Il choisit maintenant un
+              mouvement direct : haut, droite, bas ou gauche.
             </p>
             <p>
               Une generation Snake est testee specimen par specimen. Le premier snake joue une
@@ -113,11 +113,10 @@
               Specimen indique cette progression.
             </p>
             <p>
-              Quand un snake se rapproche de la nourriture, il gagne un peu de fitness. Quand il
-              mange, il gagne beaucoup plus de fitness et son corps grandit. Les boucles repetees
-              sont penalisees pour eviter qu'un specimen tourne en rond sans progresser. S'il touche
-              un mur, son corps ou s'il reste trop longtemps sans manger, il meurt et son score
-              s'arrete.
+              La survie seule ne rapporte presque rien. Le fitness augmente surtout quand le snake
+              reduit sa meilleure distance a la nourriture et quand il mange. Les revisites de cases
+              et les periodes sans progresser sont fortement penalisees pour eviter qu'un specimen
+              tourne en rond. S'il touche un mur, son corps ou s'il stagne trop longtemps, il meurt.
             </p>
             <p>
               A la fin d'une generation, les snakes les plus efficaces sont conserves. Les autres

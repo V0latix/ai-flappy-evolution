@@ -3,7 +3,7 @@
 Neuro Evolution Arcade is a browser playground for training small neural
 networks to play arcade-style games through neuroevolution.
 
-The first available game is a Flappy-style pipe runner. Snake is now available
+The first available game is Flappy Bird. Snake is now available
 as the second game. The long-term direction is to add more games that reuse the
 same learning loop: observe game state, decide an action, score fitness, select
 the strongest agents, cross over their networks, mutate weights, and run a new
@@ -13,32 +13,34 @@ generation.
 
 The app currently runs entirely in the browser and includes:
 
-- Canvas-based Pipe Runner and Snake simulations
+- Canvas-based Flappy Bird and Snake simulations
 - A game picker that separates game-specific controls and explanations
 - Populations of neural-network-controlled agents
 - Fitness scoring, elite preservation, crossover, and mutation
 - Generation-by-generation training
 - Live metrics and a neural-network visualizer for the current champion
-- Pipe Runner with six inputs, including the following pipe gap
-- Snake with ten inputs and three actions: turn left, continue, turn right
+- Flappy Bird with six inputs, including the following pipe gap
+- Snake with ten inputs and four direct actions: up, right, down, left
 - Sequential Snake evaluation: one specimen plays a full run, then the next
   specimen starts its own run
-- Human play mode with the space bar for Pipe Runner and arrows/WASD for Snake
+- Human play mode with the space bar for Flappy Bird and arrows/WASD for Snake
 - Local champion save/load via browser storage
-- Pipe Runner difficulty presets for gap, spacing, speed, and mutation
+- Flappy Bird difficulty presets for gap, spacing, speed, and mutation
 - Snake-specific controls for grid size and food patience
 
 ## Game Modules
 
-`Pipe Runner` trains flying agents. The network observes height, vertical
+`Flappy Bird` trains flying agents. The network observes height, vertical
 velocity, obstacle distance, the current gap, and the next gap. The output is a
 single flap decision.
 
-`Snake` trains grid agents. The network observes immediate danger straight
-ahead, left, and right; food direction relative to the snake; open space in
-those same directions; and length. The outputs select one of three relative
-moves: left, forward, or right. Snake specimens are evaluated one at a time so
-each agent gets a separate board, food sequence, and fitness score.
+`Snake` trains grid agents. The network observes danger in the four absolute
+directions, food position, current direction, stale progress, and length. The
+outputs select one of four direct moves: up, right, down, or left. Snake
+specimens are evaluated one at a time so each agent gets a separate board, food
+sequence, and fitness score. The fitness function now prioritizes reaching food
+over simply staying alive, with strong penalties for revisiting cells or going
+too long without improving the distance to food.
 
 ## Next Game Ideas
 
