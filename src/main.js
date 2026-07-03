@@ -1531,10 +1531,13 @@ function createHillClimbGame() {
   const HILL_MAX_SPIN = 0.045;
   const HILL_GROUND_TILT = 0.00018;
   const HILL_AIR_TILT = 0.0018;
-  const HILL_MOTOR_FORCE = 0.19;
-  const WHEEL_BASE_STIFFNESS = 0.42;
+  const HILL_REAR_MOTOR_FORCE = 0.36;
+  const HILL_FRONT_MOTOR_FORCE = 0.16;
+  const WHEEL_BASE_STIFFNESS = 0.48;
   const CHASSIS_ANGLE_FOLLOW = 0.11;
-  const CHASSIS_BODY_LIFT = 44;
+  const CHASSIS_BODY_LIFT = 58;
+  const CHASSIS_SCRAPE_LIMIT = 34;
+  const CHASSIS_HARD_IMPACT_SPEED = 7.2;
   const HILL_SUBSTEPS = 3;
   const SUSPENSION_REST_LENGTH = 46;
   const MAX_FUEL = 1200;
@@ -1714,10 +1717,11 @@ function createHillClimbGame() {
 
     if (wheel.contact) {
       tangentSpeed += wheelTangentialGravity(ground) * dt;
-      if (side < 0 && action.gas && agent.fuel > 0 && wheel.contact) {
-        tangentSpeed += HILL_MOTOR_FORCE * dt;
+      const motorForce = side < 0 ? HILL_REAR_MOTOR_FORCE : HILL_FRONT_MOTOR_FORCE;
+      if (action.gas && agent.fuel > 0 && wheel.contact) {
+        tangentSpeed += motorForce * dt;
       }
-      tangentSpeed = clamp(tangentSpeed, -5.2, 8.4) * 0.996;
+      tangentSpeed = clamp(tangentSpeed, -5.2, 10.5) * 0.997;
       wheel.vx = tangent.x * tangentSpeed;
       wheel.vy = tangent.y * tangentSpeed;
     } else {
@@ -1808,7 +1812,11 @@ function createHillClimbGame() {
     }
 
     if (deepest <= 0) return;
-    if (roofHit || deepest > 12 || Math.abs(agent.vy) > 4.8 || Math.abs(agent.angularVelocity) > 0.16) {
+    if (
+      roofHit ||
+      (deepest > CHASSIS_SCRAPE_LIMIT &&
+        (Math.abs(agent.vy) > CHASSIS_HARD_IMPACT_SPEED || Math.abs(agent.angularVelocity) > 0.22))
+    ) {
       agent.alive = false;
       agent.crashed = true;
       agent.fitness -= 450;

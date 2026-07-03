@@ -309,6 +309,7 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(html, /Flappy Bird/);
   assert.match(html, /Lunar Lander/);
   assert.match(html, /Hill Climb/);
+  assert.doesNotMatch(html, /Collines, carburant, flips/);
   assert.match(favicon, /<svg/);
   assert.match(favicon, /Neuro Evolution Arcade/);
   assert.match(favicon, /#1a56db/);
@@ -336,10 +337,13 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /const HILL_MAX_SPIN = 0\.045/);
   assert.match(script, /const HILL_GROUND_TILT = 0\.00018/);
   assert.match(script, /const HILL_AIR_TILT = 0\.0018/);
-  assert.match(script, /const HILL_MOTOR_FORCE = 0\.19/);
-  assert.match(script, /const WHEEL_BASE_STIFFNESS = 0\.42/);
+  assert.match(script, /const HILL_REAR_MOTOR_FORCE = 0\.36/);
+  assert.match(script, /const HILL_FRONT_MOTOR_FORCE = 0\.16/);
+  assert.match(script, /const WHEEL_BASE_STIFFNESS = 0\.48/);
   assert.match(script, /const CHASSIS_ANGLE_FOLLOW = 0\.11/);
-  assert.match(script, /const CHASSIS_BODY_LIFT = 44/);
+  assert.match(script, /const CHASSIS_BODY_LIFT = 58/);
+  assert.match(script, /const CHASSIS_SCRAPE_LIMIT = 34/);
+  assert.match(script, /const CHASSIS_HARD_IMPACT_SPEED = 7\.2/);
   assert.match(script, /const SUSPENSION_REST_LENGTH = 46/);
   assert.match(script, /const COIN_LIFTS = \[42, 32, 38\]/);
   assert.match(script, /function makeWheel\(x\)/);
@@ -355,7 +359,9 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /tilt \* \(grounded \? HILL_GROUND_TILT : HILL_AIR_TILT\)/);
   assert.match(script, /const rear = suspensionWheel\(agent, -1\);/);
   assert.match(script, /targetCtx\.lineTo\(rear\.mount\.x - cameraX, rear\.mount\.y\)/);
-  assert.match(script, /if \(side < 0 && action\.gas && agent\.fuel > 0 && wheel\.contact\)/);
+  assert.match(script, /const motorForce = side < 0 \? HILL_REAR_MOTOR_FORCE : HILL_FRONT_MOTOR_FORCE/);
+  assert.match(script, /if \(action\.gas && agent\.fuel > 0 && wheel\.contact\)/);
+  assert.match(script, /deepest > CHASSIS_SCRAPE_LIMIT/);
   assert.doesNotMatch(script, /function applyForce\(agent, point, forceX, forceY/);
   assert.doesNotMatch(script, /function applyWheel\(agent, side, action, contact\)/);
   assert.doesNotMatch(script, /side < 0 \? 0\.11 : 0\.075/);
