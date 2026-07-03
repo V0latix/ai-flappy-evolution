@@ -1505,19 +1505,41 @@ function createHillClimbGame() {
     { x: 6600, y: 455 },
     { x: 7200, y: 300 },
     { x: 7900, y: 420 },
+    { x: 8600, y: 250 },
+    { x: 9300, y: 470 },
+    { x: 10100, y: 260 },
+    { x: 10850, y: 455 },
+    { x: 11600, y: 235 },
+    { x: 12400, y: 470 },
+    { x: 13200, y: 320 },
+    { x: 14000, y: 455 },
+    { x: 14800, y: 220 },
+    { x: 15500, y: 465 },
+    { x: 16400, y: 300 },
+    { x: 17300, y: 470 },
+    { x: 18300, y: 240 },
+    { x: 19300, y: 455 },
+    { x: 20400, y: 310 },
+    { x: 21400, y: 470 },
+    { x: 22000, y: 300 },
   ];
-  const CHASSIS_WIDTH = 64;
-  const CHASSIS_HEIGHT = 28;
+  const CHASSIS_WIDTH = 98;
+  const CHASSIS_HEIGHT = 36;
   const WHEEL_RADIUS = 14;
-  const WHEEL_BASE = 56;
+  const WHEEL_BASE = 86;
   const HILL_GRAVITY = 0.34;
+  const HILL_GRAVITY_ROLL = 0.18;
   const HILL_SUBSTEPS = 3;
   const MAX_FUEL = 1200;
   const START_X = 120;
   const START_Y_OFFSET = 76;
   const LEVEL_END = TERRAIN[TERRAIN.length - 1].x;
-  const COIN_X = [390, 660, 980, 1290, 1710, 2060, 2460, 2840, 3220, 3660, 4040, 4460, 4940, 5420, 5960, 6460, 7040, 7600];
-  const FUEL_X = [1050, 2180, 3420, 4920, 6420, 7420];
+  const COIN_X = [
+    390, 660, 980, 1290, 1710, 2060, 2460, 2840, 3220, 3660, 4040, 4460, 4940, 5420, 5960,
+    6460, 7040, 7600, 8450, 9100, 9900, 10600, 11400, 12200, 13050, 13800, 14600, 15400,
+    16250, 17100, 18100, 19100, 20200, 21200, 21850,
+  ];
+  const FUEL_X = [1050, 2180, 3420, 4920, 6420, 7420, 9000, 10800, 12800, 15000, 17300, 19600, 21400];
 
   function smoothstep(value) {
     return value * value * (3 - 2 * value);
@@ -1603,7 +1625,6 @@ function createHillClimbGame() {
     agent.stalledFrames = 0;
     agent.crashed = false;
     agent.controls = { gas: false, left: false, right: false };
-    agent.controlFrames = { gas: 0, left: 0, right: 0 };
   }
 
   function nextItem(agent, items, collected) {
@@ -1653,7 +1674,11 @@ function createHillClimbGame() {
   function applyForce(agent, point, forceX, forceY, scale = 1) {
     agent.vx += forceX * scale;
     agent.vy += forceY * scale;
-    agent.angularVelocity += (point.relX * forceY - point.relY * forceX) * 0.0009 * scale;
+    agent.angularVelocity += (point.relX * forceY - point.relY * forceX) * 0.00055 * scale;
+  }
+
+  function slopeGravityForce(ground) {
+    return clamp(HILL_GRAVITY * ground.slope * HILL_GRAVITY_ROLL, -0.065, 0.065);
   }
 
   function applyWheel(agent, side, action) {
@@ -1672,6 +1697,9 @@ function createHillClimbGame() {
 
     applyForce(agent, wheel, normal.x * suspension, normal.y * suspension);
 
+    const rollForce = slopeGravityForce(ground);
+    applyForce(agent, wheel, tangent.x * rollForce, tangent.y * rollForce);
+
     const grip = clamp(-tangentVelocity * 0.028, -0.08, 0.08);
     applyForce(agent, wheel, tangent.x * grip, tangent.y * grip);
 
@@ -1683,26 +1711,34 @@ function createHillClimbGame() {
     return true;
   }
 
-  function chassisCorners(agent) {
+  function chassisCollisionPoints(agent) {
     const halfWidth = CHASSIS_WIDTH / 2;
     const halfHeight = CHASSIS_HEIGHT / 2;
     return [
-      localPoint(agent, -halfWidth, -halfHeight),
-      localPoint(agent, halfWidth, -halfHeight),
-      localPoint(agent, -halfWidth, halfHeight),
-      localPoint(agent, halfWidth, halfHeight),
+      { ...localPoint(agent, -halfWidth * 0.88, -halfHeight * 0.55), roof: true },
+      { ...localPoint(agent, -halfWidth * 0.22, -halfHeight * 1.28), roof: true },
+      { ...localPoint(agent, halfWidth * 0.18, -halfHeight * 1.35), roof: true },
+      { ...localPoint(agent, halfWidth * 0.7, -halfHeight * 0.52), roof: true },
+      { ...localPoint(agent, -halfWidth, halfHeight * 0.45), roof: false },
+      { ...localPoint(agent, -halfWidth * 0.35, halfHeight * 0.7), roof: false },
+      { ...localPoint(agent, halfWidth * 0.35, halfHeight * 0.7), roof: false },
+      { ...localPoint(agent, halfWidth, halfHeight * 0.45), roof: false },
     ];
   }
 
   function settleChassis(agent) {
     let deepest = 0;
-    for (const corner of chassisCorners(agent)) {
-      const ground = terrainAt(corner.x);
-      deepest = Math.max(deepest, corner.y - ground.y);
+    let roofHit = false;
+    for (const point of chassisCollisionPoints(agent)) {
+      const ground = terrainAt(point.x);
+      const penetration = point.y - ground.y;
+      if (penetration <= 0) continue;
+      deepest = Math.max(deepest, penetration);
+      roofHit = roofHit || point.roof;
     }
 
     if (deepest <= 0) return;
-    if (deepest > 8 || Math.abs(agent.vy) > 4.4 || Math.abs(agent.angularVelocity) > 0.2) {
+    if (roofHit || deepest > 12 || Math.abs(agent.vy) > 4.8 || Math.abs(agent.angularVelocity) > 0.16) {
       agent.alive = false;
       agent.crashed = true;
       agent.fitness -= 450;
@@ -1765,14 +1801,14 @@ function createHillClimbGame() {
 
       const grounded = rearContact || frontContact;
       const tilt = effectiveAction.left ? -1 : effectiveAction.right ? 1 : 0;
-      agent.angularVelocity += tilt * (grounded ? 0.004 : 0.015);
+      agent.angularVelocity += tilt * (grounded ? 0.0022 : 0.008);
 
       agent.x += agent.vx / HILL_SUBSTEPS;
       agent.y += agent.vy / HILL_SUBSTEPS;
       agent.angle += agent.angularVelocity / HILL_SUBSTEPS;
       agent.vx *= grounded ? 0.998 : 0.999;
       agent.vy *= 0.999;
-      agent.angularVelocity *= grounded ? 0.992 : 0.996;
+      agent.angularVelocity *= grounded ? 0.988 : 0.994;
     }
 
     settleChassis(agent);
@@ -1802,19 +1838,8 @@ function createHillClimbGame() {
     }
   }
 
-  function setTimedControl(agent, name) {
-    if (!agent) return;
-    agent.controls[name] = true;
-    agent.controlFrames[name] = 8;
-  }
-
   function controlsForHuman(agent) {
-    const controls = { ...agent.controls };
-    for (const key of Object.keys(agent.controlFrames)) {
-      agent.controlFrames[key] = Math.max(0, agent.controlFrames[key] - 1);
-      if (agent.controlFrames[key] === 0) agent.controls[key] = false;
-    }
-    return controls;
+    return { ...agent.controls };
   }
 
   function drawHillBackground(targetCtx) {
@@ -1938,11 +1963,27 @@ function createHillClimbGame() {
     targetCtx.fillStyle = "#247ba0";
     targetCtx.strokeStyle = "#172026";
     targetCtx.lineWidth = 3;
-    targetCtx.fillRect(-CHASSIS_WIDTH / 2, -CHASSIS_HEIGHT / 2, CHASSIS_WIDTH, CHASSIS_HEIGHT);
-    targetCtx.strokeRect(-CHASSIS_WIDTH / 2, -CHASSIS_HEIGHT / 2, CHASSIS_WIDTH, CHASSIS_HEIGHT);
+    targetCtx.beginPath();
+    targetCtx.moveTo(-CHASSIS_WIDTH / 2, CHASSIS_HEIGHT * 0.18);
+    targetCtx.lineTo(-CHASSIS_WIDTH * 0.38, -CHASSIS_HEIGHT * 0.5);
+    targetCtx.lineTo(CHASSIS_WIDTH * 0.08, -CHASSIS_HEIGHT * 0.68);
+    targetCtx.lineTo(CHASSIS_WIDTH * 0.45, -CHASSIS_HEIGHT * 0.3);
+    targetCtx.lineTo(CHASSIS_WIDTH / 2, CHASSIS_HEIGHT * 0.2);
+    targetCtx.closePath();
+    targetCtx.fill();
+    targetCtx.stroke();
+    targetCtx.fillStyle = "#bfe7f2";
+    targetCtx.beginPath();
+    targetCtx.moveTo(-CHASSIS_WIDTH * 0.22, -CHASSIS_HEIGHT * 0.48);
+    targetCtx.lineTo(CHASSIS_WIDTH * 0.06, -CHASSIS_HEIGHT * 0.58);
+    targetCtx.lineTo(CHASSIS_WIDTH * 0.24, -CHASSIS_HEIGHT * 0.28);
+    targetCtx.lineTo(-CHASSIS_WIDTH * 0.28, -CHASSIS_HEIGHT * 0.25);
+    targetCtx.closePath();
+    targetCtx.fill();
+    targetCtx.stroke();
     targetCtx.fillStyle = "#f2c14e";
-    targetCtx.fillRect(4, -CHASSIS_HEIGHT / 2 - 16, 24, 16);
-    targetCtx.strokeRect(4, -CHASSIS_HEIGHT / 2 - 16, 24, 16);
+    targetCtx.fillRect(CHASSIS_WIDTH * 0.14, -CHASSIS_HEIGHT * 0.72, 24, 12);
+    targetCtx.strokeRect(CHASSIS_WIDTH * 0.14, -CHASSIS_HEIGHT * 0.72, 24, 12);
     targetCtx.restore();
   }
 
@@ -2032,13 +2073,14 @@ function createHillClimbGame() {
       updateHill(agent, targetWorld, controlsForHuman(agent));
     },
     humanPrimaryAction(agent) {
-      setTimedControl(agent, "gas");
+      if (agent) agent.controls.gas = true;
     },
     handleHumanKey(event, agent) {
       if (!agent) return false;
       const actions = {
         ArrowUp: "gas",
         KeyW: "gas",
+        Space: "gas",
         ArrowLeft: "left",
         KeyA: "left",
         ArrowRight: "right",
@@ -2047,7 +2089,25 @@ function createHillClimbGame() {
       const action = actions[event.code];
       if (!action) return false;
       if (!agent.alive) resetHillAgent(agent);
-      setTimedControl(agent, action);
+      agent.controls[action] = true;
+      if (action === "left") agent.controls.right = false;
+      if (action === "right") agent.controls.left = false;
+      return true;
+    },
+    handleHumanKeyUp(event, agent) {
+      if (!agent) return false;
+      const actions = {
+        ArrowUp: "gas",
+        KeyW: "gas",
+        Space: "gas",
+        ArrowLeft: "left",
+        KeyA: "left",
+        ArrowRight: "right",
+        KeyD: "right",
+      };
+      const action = actions[event.code];
+      if (!action) return false;
+      agent.controls[action] = false;
       return true;
     },
     distanceMetric(agent) {
