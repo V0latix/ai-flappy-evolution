@@ -38,8 +38,12 @@ single flap decision.
 network observes horizontal position, altitude, horizontal and vertical speed,
 angle, fuel, distance to the landing pad, and spin. Its outputs control main
 thrust, rotation left, and rotation right. Lunar specimens are evaluated one at
-a time. Each specimen gets one terminal attempt on the generation's platform:
-landing, crashing, or timing out ends its turn and starts the next specimen.
+a time. Each generation creates one landing-pad sequence shared by every
+specimen. Each specimen starts on the first target in that sequence; a
+successful landing adds score and fitness, moves the platform to the next
+target, and restarts the same specimen from a deterministic centered spawn.
+Crashing or timing out ends its turn and starts the next specimen at the first
+target of the same sequence, with the same centered initial state.
 At generation end, selection keeps the strongest fitness, then crossover and
 mutation create the next generation. The visible score is the total successful
 landings accumulated by the generation so far.

@@ -313,6 +313,13 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /startAgent\(agent, targetWorld\)/);
   assert.match(script, /sequentialScore\(nextAgents\)/);
   assert.match(script, /agent\.score \+= 1/);
+  assert.match(script, /makeTargetSequence/);
+  assert.match(script, /advanceLandingTarget\(agent, targetWorld\)/);
+  assert.match(script, /targetWorld\.targetIndex = 0/);
+  assert.match(script, /targetWorld\.pad = targetWorld\.targetSequence\[targetWorld\.targetIndex\]/);
+  assert.match(script, /agent\.y = 48/);
+  assert.match(script, /agent\.vx = 0/);
+  assert.match(script, /agent\.angle = 0/);
   assert.doesNotMatch(script, /const MAX_ATTEMPTS/);
   assert.doesNotMatch(script, /resetLander\(agent, targetWorld, false\)/);
   assert.doesNotMatch(script, /targetCtx\.setLineDash/);

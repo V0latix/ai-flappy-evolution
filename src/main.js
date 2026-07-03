@@ -963,6 +963,7 @@ function createLunarGame() {
   const ROTATE_ACCEL = 0.014;
   const MAX_ANGLE = 1.38;
   const MAX_STEPS = 1150;
+  const TARGET_SEQUENCE_LENGTH = 42;
 
   function lunarGravityG() {
     return clamp(numberValue(ui.lunarGravity, 0.17), 0.1, 0.35);
@@ -993,24 +994,37 @@ function createLunarGame() {
     };
   }
 
-  function resetLander(agent, targetWorld, resetTotals = true) {
+  function makeTargetSequence() {
+    return Array.from({ length: TARGET_SEQUENCE_LENGTH }, makeLandingPad);
+  }
+
+  function activateLandingTarget(targetWorld, targetIndex) {
+    if (!targetWorld.targetSequence || targetWorld.targetSequence.length === 0) {
+      targetWorld.targetSequence = makeTargetSequence();
+    }
+    targetWorld.targetIndex = targetIndex % targetWorld.targetSequence.length;
+    targetWorld.pad = targetWorld.targetSequence[targetWorld.targetIndex];
+  }
+
+  function resetLander(agent, targetWorld, options = {}) {
+    const resetTotals = options.resetTotals !== false;
     const fuel = initialFuel();
     agent.x = WIDTH / 2;
-    agent.y = 34 + Math.random() * 24;
-    agent.vx = Math.random() * 0.5 - 0.25;
-    agent.vy = Math.random() * 0.25;
-    agent.angle = Math.random() * 0.34 - 0.17;
+    agent.y = 48;
+    agent.vx = 0;
+    agent.vy = 0;
+    agent.angle = 0;
     agent.angularV = 0;
     agent.fuel = fuel;
     agent.initialFuel = fuel;
     agent.alive = true;
     agent.landed = false;
     agent.crashed = false;
+    agent.completed = false;
     if (resetTotals) {
       agent.fitness = 0;
       agent.score = 0;
       agent.attempts = 0;
-      agent.completed = false;
     }
     agent.attempts += 1;
     agent.age = 0;
@@ -1018,6 +1032,11 @@ function createLunarGame() {
     agent.pendingLeft = false;
     agent.pendingRight = false;
     agent.lastDistance = distanceToPad(agent, targetWorld);
+  }
+
+  function advanceLandingTarget(agent, targetWorld) {
+    activateLandingTarget(targetWorld, targetWorld.targetIndex + 1);
+    resetLander(agent, targetWorld, { resetTotals: false });
   }
 
   function prepareQueuedLander(agent) {
@@ -1166,8 +1185,8 @@ function createLunarGame() {
 
       if (agent.landed) {
         agent.score += 1;
-        agent.completed = true;
         agent.fitness += (12000 + agent.fuel * 22 - agent.age * 1.8) * padDifficulty;
+        advanceLandingTarget(agent, targetWorld);
       } else {
         const controlledImpact = Math.max(0, 1 - speed / 2.4) * 1000 + Math.max(0, 1 - angleAbs / 0.7) * 700;
         agent.fitness += onPad ? (1400 + controlledImpact) * padDifficulty : 0;
@@ -1280,7 +1299,8 @@ function createLunarGame() {
     defaultChampionStatus: "No Lunar Lander champion saved yet.",
     humanNetworkMessage: "Switch to AI training to view the Lunar Lander network.",
     createWorld() {
-      return { pad: makeLandingPad(), activeAgentIndex: 0 };
+      const targetSequence = makeTargetSequence();
+      return { pad: targetSequence[0], targetSequence, targetIndex: 0, activeAgentIndex: 0 };
     },
     seedGenomes() {
       return [starterGenome(this), starterGenome(this, 0.2, 0.12), starterGenome(this, -0.12, -0.12)];
@@ -1315,15 +1335,20 @@ function createLunarGame() {
       return this.makeAgent(id, createGenome(this));
     },
     resetAgents(nextAgents, targetWorld) {
-      targetWorld.pad = makeLandingPad();
+      targetWorld.targetSequence = makeTargetSequence();
+      targetWorld.targetIndex = 0;
+      activateLandingTarget(targetWorld, 0);
       targetWorld.activeAgentIndex = 0;
       for (const agent of nextAgents) prepareQueuedLander(agent);
     },
     resetHuman(agent, targetWorld) {
-      targetWorld.pad = makeLandingPad();
+      targetWorld.targetSequence = makeTargetSequence();
+      activateLandingTarget(targetWorld, 0);
       resetLander(agent, targetWorld);
     },
     startAgent(agent, targetWorld) {
+      targetWorld.targetIndex = 0;
+      activateLandingTarget(targetWorld, 0);
       resetLander(agent, targetWorld);
     },
     stepWorld() {},
