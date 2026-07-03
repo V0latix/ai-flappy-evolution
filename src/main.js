@@ -1523,20 +1523,28 @@ function createHillClimbGame() {
     { x: 21400, y: 470 },
     { x: 22000, y: 300 },
   ];
-  const CHASSIS_WIDTH = 112;
-  const CHASSIS_HEIGHT = 34;
-  const WHEEL_RADIUS = 16;
-  const WHEEL_BASE = 96;
+  const CHASSIS_WIDTH = 125;
+  const CHASSIS_HEIGHT = 40;
+  const WHEEL_RADIUS = 17;
+  const WHEEL_BASE = CHASSIS_WIDTH - WHEEL_RADIUS * 2.4;
   const HILL_GRAVITY = 0.34;
-  const HILL_MAX_SPIN = 0.045;
+  const CODE_BULLET_MOTOR_SPEED = 13 * Math.PI;
+  const CODE_BULLET_REAR_TORQUE = 700;
+  const CODE_BULLET_FRONT_TORQUE = 350;
+  const CODE_BULLET_MOTOR_RESPONSE = 30;
+  const CODE_BULLET_WHEEL_FRICTION = 1.5;
+  const CODE_BULLET_WHEEL_RESTITUTION = 0.1;
+  const CODE_BULLET_RIM_FRICTION = 0.99;
+  const CODE_BULLET_RIM_RESTITUTION = 0.2;
+  const CODE_BULLET_SUSPENSION_FREQUENCY = 70;
+  const CODE_BULLET_SUSPENSION_DAMPING = 25;
+  const HILL_MAX_SPIN = 0.07;
   const HILL_GROUND_TILT = 0.00018;
   const HILL_AIR_TILT = 0.0018;
-  const HILL_REAR_MOTOR_FORCE = 0.36;
-  const HILL_FRONT_MOTOR_FORCE = 0.16;
-  const WHEEL_BASE_STIFFNESS = 0.48;
-  const CHASSIS_ANGLE_FOLLOW = 0.11;
-  const CHASSIS_BODY_LIFT = 58;
-  const CHASSIS_SCRAPE_LIMIT = 34;
+  const WHEEL_BASE_STIFFNESS = 0.58;
+  const CHASSIS_ANGLE_FOLLOW = 0.18;
+  const CHASSIS_BODY_LIFT = 64;
+  const CHASSIS_SCRAPE_LIMIT = 40;
   const CHASSIS_HARD_IMPACT_SPEED = 7.2;
   const HILL_SUBSTEPS = 3;
   const SUSPENSION_REST_LENGTH = 46;
@@ -1606,6 +1614,8 @@ function createHillClimbGame() {
       y: ground.y - WHEEL_RADIUS,
       vx: 0,
       vy: 0,
+      angle: 0,
+      angularVelocity: 0,
       contact: true,
     };
   }
@@ -1709,6 +1719,16 @@ function createHillClimbGame() {
     return clamp((HILL_GRAVITY * ground.slope) / length, -0.13, 0.13);
   }
 
+  function applyCodeBulletMotor(wheel, side, action, dt) {
+    if (!action.gas || !wheel.contact) return 0;
+    const targetSpeed = -CODE_BULLET_MOTOR_SPEED;
+    const maxTorque = side < 0 ? CODE_BULLET_REAR_TORQUE : CODE_BULLET_FRONT_TORQUE;
+    const speedError = targetSpeed - wheel.angularVelocity;
+    const torque = clamp(speedError * CODE_BULLET_MOTOR_RESPONSE, -maxTorque, maxTorque);
+    wheel.angularVelocity += torque * 0.0012 * dt;
+    return (-torque / maxTorque) * (side < 0 ? 1.12 : 0.56);
+  }
+
   function integrateWheel(agent, wheel, side, action, dt) {
     const ground = terrainAt(wheel.x);
     const tangentLength = Math.hypot(ground.slope, 1) || 1;
@@ -1717,16 +1737,20 @@ function createHillClimbGame() {
 
     if (wheel.contact) {
       tangentSpeed += wheelTangentialGravity(ground) * dt;
-      const motorForce = side < 0 ? HILL_REAR_MOTOR_FORCE : HILL_FRONT_MOTOR_FORCE;
-      if (action.gas && agent.fuel > 0 && wheel.contact) {
-        tangentSpeed += motorForce * dt;
+      if (agent.fuel > 0) {
+        tangentSpeed += applyCodeBulletMotor(wheel, side, action, dt);
       }
-      tangentSpeed = clamp(tangentSpeed, -5.2, 10.5) * 0.997;
+      const rollingSpeed = -wheel.angularVelocity * WHEEL_RADIUS * 0.016;
+      const slip = rollingSpeed - tangentSpeed;
+      tangentSpeed += clamp(slip * CODE_BULLET_WHEEL_FRICTION * 0.035, -0.22, 0.22);
+      tangentSpeed = clamp(tangentSpeed, -5.2, 11.4) * 0.997;
       wheel.vx = tangent.x * tangentSpeed;
       wheel.vy = tangent.y * tangentSpeed;
+      wheel.angularVelocity = -(tangentSpeed / WHEEL_RADIUS) * 62;
     } else {
       wheel.vy += HILL_GRAVITY * dt;
       wheel.vx *= 0.999;
+      wheel.angularVelocity *= 0.995;
     }
 
     wheel.x += wheel.vx * dt;
@@ -1739,8 +1763,9 @@ function createHillClimbGame() {
       const landingSpeed = wheel.vx * nextTangent.x + wheel.vy * nextTangent.y;
       wheel.x = Math.max(START_X - 120, wheel.x);
       wheel.y = nextGround.y - WHEEL_RADIUS;
-      wheel.vx = nextTangent.x * landingSpeed * 0.985;
-      wheel.vy = nextTangent.y * landingSpeed * 0.985;
+      const bounce = Math.min(CODE_BULLET_WHEEL_RESTITUTION + CODE_BULLET_RIM_RESTITUTION * 0.15, 0.16);
+      wheel.vx = nextTangent.x * landingSpeed * (CODE_BULLET_RIM_FRICTION - bounce * 0.02);
+      wheel.vy = nextTangent.y * landingSpeed * (CODE_BULLET_RIM_FRICTION - bounce * 0.02);
       wheel.contact = true;
     } else {
       wheel.contact = false;
@@ -1771,12 +1796,15 @@ function createHillClimbGame() {
     const grounded = rear.contact || front.contact;
     const tilt = action.left ? -1 : action.right ? 1 : 0;
 
+    const jointPull = grounded ? Math.min(0.52, CODE_BULLET_SUSPENSION_FREQUENCY / 150) : 0.12;
+    const jointDamping = grounded ? 1 / (1 + CODE_BULLET_SUSPENSION_DAMPING * 0.018) : 0.985;
+
     agent.vx = (rear.vx + front.vx) * 0.5;
-    agent.vy += (targetY - agent.y) * (grounded ? 0.22 : 0.08);
-    agent.vy *= grounded ? 0.72 : 0.985;
-    agent.x += (targetX - agent.x) * (grounded ? 0.8 : 0.3);
+    agent.vy += (targetY - agent.y) * jointPull;
+    agent.vy *= jointDamping;
+    agent.x += (targetX - agent.x) * (grounded ? 0.9 : 0.3);
     agent.y += agent.vy * dt;
-    agent.y += (targetY - agent.y) * (grounded ? 0.34 : 0.12);
+    agent.y += (targetY - agent.y) * jointPull;
 
     agent.angularVelocity += normalizeAngle(wheelAngle - agent.angle) * (grounded ? CHASSIS_ANGLE_FOLLOW : 0.025);
     agent.angularVelocity += tilt * (grounded ? HILL_GROUND_TILT : HILL_AIR_TILT);
