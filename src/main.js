@@ -1485,108 +1485,157 @@ function createLunarGame() {
 
 function createHillClimbGame() {
   const TERRAIN = [
-    { x: 0, y: 424 },
-    { x: 180, y: 418 },
-    { x: 360, y: 440 },
-    { x: 560, y: 410 },
-    { x: 760, y: 448 },
-    { x: 980, y: 402 },
-    { x: 1200, y: 436 },
-    { x: 1440, y: 390 },
-    { x: 1680, y: 450 },
-    { x: 1940, y: 382 },
-    { x: 2220, y: 438 },
-    { x: 2520, y: 362 },
-    { x: 2820, y: 458 },
-    { x: 3140, y: 346 },
-    { x: 3460, y: 450 },
-    { x: 3800, y: 330 },
-    { x: 4140, y: 462 },
-    { x: 4500, y: 318 },
-    { x: 4860, y: 452 },
-    { x: 5220, y: 338 },
-    { x: 5600, y: 468 },
-    { x: 6000, y: 300 },
-    { x: 6400, y: 456 },
-    { x: 6820, y: 334 },
-    { x: 7240, y: 468 },
-    { x: 7660, y: 286 },
-    { x: 8080, y: 438 },
-    { x: 8500, y: 308 },
-    { x: 8920, y: 472 },
-    { x: 9340, y: 276 },
-    { x: 9760, y: 452 },
-    { x: 10180, y: 320 },
-    { x: 10600, y: 476 },
-    { x: 11020, y: 262 },
-    { x: 11440, y: 458 },
-    { x: 11860, y: 300 },
-    { x: 12280, y: 474 },
-    { x: 12700, y: 246 },
-    { x: 13120, y: 460 },
-    { x: 13540, y: 314 },
-    { x: 13960, y: 474 },
-    { x: 14380, y: 238 },
-    { x: 14800, y: 446 },
-    { x: 15220, y: 292 },
-    { x: 15640, y: 478 },
-    { x: 16040, y: 234 },
-    { x: 16440, y: 456 },
-    { x: 16840, y: 330 },
-    { x: 17240, y: 478 },
-    { x: 17640, y: 224 },
-    { x: 18040, y: 448 },
-    { x: 18440, y: 282 },
-    { x: 18840, y: 482 },
-    { x: 19240, y: 222 },
-    { x: 19640, y: 462 },
-    { x: 20040, y: 318 },
-    { x: 20440, y: 480 },
-    { x: 20840, y: 214 },
-    { x: 21240, y: 452 },
-    { x: 21640, y: 292 },
-    { x: 22040, y: 482 },
-    { x: 22440, y: 228 },
-    { x: 22840, y: 468 },
-    { x: 23240, y: 336 },
-    { x: 23640, y: 478 },
-    { x: 24040, y: 220 },
-    { x: 24440, y: 444 },
-    { x: 24840, y: 286 },
-    { x: 25240, y: 486 },
-    { x: 25640, y: 214 },
-    { x: 26040, y: 462 },
-    { x: 26440, y: 310 },
-    { x: 26840, y: 486 },
-    { x: 27240, y: 226 },
-    { x: 27640, y: 452 },
-    { x: 28040, y: 278 },
-    { x: 28440, y: 486 },
-    { x: 28840, y: 218 },
-    { x: 29240, y: 468 },
-    { x: 29640, y: 328 },
-    { x: 30040, y: 484 },
-    { x: 30440, y: 210 },
-    { x: 30840, y: 440 },
-    { x: 31240, y: 284 },
-    { x: 31640, y: 488 },
-    { x: 32040, y: 212 },
-    { x: 32440, y: 466 },
-    { x: 32840, y: 304 },
-    { x: 33240, y: 488 },
-    { x: 33640, y: 220 },
-    { x: 34040, y: 452 },
-    { x: 34440, y: 272 },
-    { x: 34840, y: 488 },
-    { x: 35240, y: 218 },
-    { x: 35640, y: 470 },
-    { x: 36040, y: 326 },
-    { x: 36440, y: 486 },
-    { x: 36840, y: 214 },
-    { x: 37240, y: 454 },
-    { x: 37640, y: 294 },
-    { x: 38040, y: 486 },
-    { x: 38400, y: 252 },
+    { x: 0, y: 432 },
+    { x: 220, y: 430 },
+    { x: 480, y: 416 },
+    { x: 760, y: 434 },
+    { x: 1030, y: 398 },
+    { x: 1300, y: 414 },
+    { x: 1640, y: 388 },
+    { x: 1990, y: 406 },
+    { x: 2340, y: 426 },
+    { x: 2700, y: 404 },
+    { x: 3040, y: 370 },
+    { x: 3400, y: 356 },
+    { x: 3740, y: 370 },
+    { x: 4020, y: 338 },
+    { x: 4240, y: 292 },
+    { x: 4480, y: 286 },
+    { x: 4760, y: 492 },
+    { x: 5160, y: 492 },
+    { x: 5460, y: 330 },
+    { x: 5700, y: 356 },
+    { x: 5940, y: 424 },
+    { x: 6160, y: 456 },
+    { x: 6550, y: 418 },
+    { x: 6840, y: 462 },
+    { x: 7040, y: 330 },
+    { x: 7240, y: 466 },
+    { x: 7440, y: 316 },
+    { x: 7640, y: 462 },
+    { x: 7840, y: 340 },
+    { x: 8040, y: 450 },
+    { x: 8240, y: 354 },
+    { x: 8580, y: 438 },
+    { x: 9000, y: 404 },
+    { x: 9400, y: 362 },
+    { x: 9820, y: 340 },
+    { x: 10280, y: 356 },
+    { x: 10720, y: 402 },
+    { x: 11140, y: 438 },
+    { x: 11600, y: 432 },
+    { x: 11960, y: 398 },
+    { x: 12000, y: 390 },
+    { x: 12120, y: 296 },
+    { x: 12420, y: 486 },
+    { x: 12850, y: 486 },
+    { x: 13120, y: 338 },
+    { x: 13260, y: 360 },
+    { x: 13640, y: 412 },
+    { x: 14080, y: 438 },
+    { x: 14520, y: 414 },
+    { x: 14940, y: 374 },
+    { x: 15380, y: 352 },
+    { x: 15860, y: 382 },
+    { x: 16320, y: 426 },
+    { x: 16800, y: 442 },
+    { x: 17260, y: 414 },
+    { x: 17720, y: 366 },
+    { x: 18200, y: 344 },
+    { x: 18680, y: 372 },
+    { x: 19140, y: 420 },
+    { x: 19600, y: 438 },
+    { x: 19940, y: 408 },
+    { x: 20260, y: 316 },
+    { x: 20580, y: 488 },
+    { x: 20940, y: 488 },
+    { x: 21220, y: 346 },
+    { x: 21420, y: 372 },
+    { x: 21840, y: 424 },
+    { x: 22280, y: 438 },
+    { x: 22740, y: 400 },
+    { x: 23220, y: 346 },
+    { x: 23680, y: 324 },
+    { x: 24160, y: 352 },
+    { x: 24620, y: 410 },
+    { x: 25080, y: 436 },
+    { x: 25560, y: 420 },
+    { x: 26040, y: 382 },
+    { x: 26520, y: 356 },
+    { x: 27000, y: 376 },
+    { x: 27480, y: 426 },
+    { x: 27980, y: 440 },
+    { x: 28320, y: 396 },
+    { x: 28680, y: 304 },
+    { x: 29020, y: 486 },
+    { x: 29420, y: 486 },
+    { x: 29720, y: 342 },
+    { x: 29900, y: 372 },
+    { x: 30320, y: 420 },
+    { x: 30800, y: 440 },
+    { x: 31280, y: 404 },
+    { x: 31780, y: 350 },
+    { x: 32280, y: 330 },
+    { x: 32800, y: 364 },
+    { x: 33300, y: 420 },
+    { x: 33800, y: 440 },
+    { x: 34300, y: 414 },
+    { x: 34820, y: 370 },
+    { x: 35340, y: 342 },
+    { x: 35860, y: 374 },
+    { x: 36400, y: 426 },
+    { x: 36920, y: 442 },
+    { x: 37440, y: 396 },
+    { x: 37920, y: 336 },
+    { x: 38400, y: 348 },
+    { x: 38900, y: 410 },
+    { x: 39400, y: 438 },
+    { x: 39840, y: 404 },
+    { x: 40260, y: 306 },
+    { x: 40620, y: 488 },
+    { x: 41060, y: 488 },
+    { x: 41360, y: 352 },
+    { x: 41600, y: 382 },
+    { x: 42100, y: 430 },
+    { x: 42600, y: 392 },
+    { x: 43100, y: 346 },
+    { x: 43600, y: 368 },
+    { x: 44100, y: 430 },
+    { x: 44600, y: 390 },
+    { x: 45100, y: 348 },
+    { x: 45600, y: 376 },
+    { x: 46100, y: 430 },
+    { x: 46600, y: 394 },
+    { x: 47000, y: 318 },
+    { x: 47320, y: 258 },
+    { x: 47740, y: 276 },
+    { x: 48280, y: 488 },
+    { x: 48960, y: 488 },
+    { x: 49360, y: 342 },
+    { x: 49860, y: 378 },
+    { x: 50360, y: 436 },
+    { x: 50860, y: 396 },
+    { x: 51360, y: 342 },
+    { x: 51860, y: 368 },
+    { x: 52360, y: 430 },
+    { x: 52860, y: 388 },
+    { x: 53360, y: 326 },
+    { x: 53860, y: 350 },
+    { x: 54360, y: 432 },
+    { x: 54860, y: 402 },
+    { x: 55360, y: 336 },
+    { x: 55860, y: 362 },
+    { x: 56360, y: 438 },
+    { x: 56880, y: 392 },
+    { x: 57400, y: 318 },
+    { x: 57920, y: 348 },
+    { x: 58440, y: 436 },
+    { x: 58960, y: 386 },
+    { x: 59480, y: 326 },
+    { x: 60000, y: 358 },
+    { x: 60600, y: 430 },
+    { x: 61200, y: 404 },
+    { x: 62000, y: 390 },
   ];
   const CHASSIS_WIDTH = 125;
   const CHASSIS_HEIGHT = 40;
@@ -1603,16 +1652,16 @@ function createHillClimbGame() {
   const CODE_BULLET_RIM_RESTITUTION = 0.2;
   const CODE_BULLET_SUSPENSION_FREQUENCY = 70;
   const CODE_BULLET_SUSPENSION_DAMPING = 25;
-  const HILL_MAX_SPIN = 0.07;
-  const HILL_GROUND_TILT = 0.00018;
-  const HILL_AIR_TILT = 0.0018;
+  const HILL_MAX_SPIN = 0.068;
+  const HILL_GROUND_TILT = 0.00026;
+  const HILL_AIR_TILT = 0.0024;
   const WHEEL_BASE_STIFFNESS = 0.58;
   const CHASSIS_ANGLE_FOLLOW = 0.18;
-  const CHASSIS_BODY_LIFT = 56;
+  const CHASSIS_BODY_LIFT = 45;
   const CHASSIS_SCRAPE_LIMIT = 40;
   const CHASSIS_HARD_IMPACT_SPEED = 7.2;
   const HILL_SUBSTEPS = 3;
-  const SUSPENSION_REST_LENGTH = 36;
+  const SUSPENSION_REST_LENGTH = 24;
   const MAX_FUEL = 1200;
   const START_X = 120;
   const START_Y_OFFSET = 76;
@@ -2126,22 +2175,22 @@ function createHillClimbGame() {
     const dx = wheelX - mountX;
     const dy = wheelY - mountY;
     const length = Math.hypot(dx, dy) || 1;
-    const topOffset = 8 / length;
-    const bottomOffset = Math.max(0, (WHEEL_RADIUS - 2) / length);
+    const topOffset = Math.min(0.45, 18 / length);
+    const bottomOffset = Math.min(0.45, (WHEEL_RADIUS + 5) / length);
     const startX = mountX + dx * topOffset;
     const startY = mountY + dy * topOffset;
     const endX = mountX + dx * (1 - bottomOffset);
     const endY = mountY + dy * (1 - bottomOffset);
 
     targetCtx.strokeStyle = "rgba(23,32,38,0.5)";
-    targetCtx.lineWidth = 3;
+    targetCtx.lineWidth = 2;
     targetCtx.beginPath();
     targetCtx.moveTo(startX, startY);
     targetCtx.lineTo(endX, endY);
     targetCtx.stroke();
 
     targetCtx.strokeStyle = "#c9d5d1";
-    targetCtx.lineWidth = 1.25;
+    targetCtx.lineWidth = 0.9;
     targetCtx.beginPath();
     targetCtx.moveTo(startX, startY);
     targetCtx.lineTo(endX, endY);
@@ -2215,6 +2264,16 @@ function createHillClimbGame() {
     targetCtx.fillRect(WIDTH - width, 48, (width - 34) * ratio, 12);
     targetCtx.fillStyle = "#172026";
     targetCtx.fillText(`${agent?.coins || 0} coins`, WIDTH - 74, 39);
+  }
+
+  function drawHillDistanceBadge(targetCtx, currentScore) {
+    targetCtx.fillStyle = "rgba(255,255,255,0.82)";
+    targetCtx.fillRect(WIDTH / 2 - 64, 18, 128, 42);
+    targetCtx.fillStyle = "#172026";
+    targetCtx.textAlign = "center";
+    targetCtx.font = "800 18px system-ui";
+    targetCtx.fillText(`${currentScore} m`, WIDTH / 2, 46);
+    targetCtx.textAlign = "left";
   }
 
   return {
@@ -2335,6 +2394,7 @@ function createHillClimbGame() {
       drawCollectibles(targetCtx, targetWorld, agent, targetWorld.cameraX);
       if (agent) drawVehicle(targetCtx, agent, targetWorld.cameraX);
       drawScoreBadge(targetCtx, currentScore);
+      drawHillDistanceBadge(targetCtx, currentScore);
       drawFuelGauge(targetCtx, agent);
       drawCrashOverlay(targetCtx, mode, agent, "Press an arrow key or Reset to drive again");
     },
