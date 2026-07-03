@@ -110,9 +110,13 @@
               son fuel, corriger son angle, ralentir sa chute et viser la zone d'atterrissage.
             </p>
             <p>
-              Chaque specimen joue plusieurs essais dans la meme generation jusqu'a reussir ou
-              epuiser ses tentatives. Le score affiche compte le nombre total d'alunissages reussis
-              dans la generation. La fitness est cumulee sur tous les essais du specimen.
+              Chaque specimen joue seul, l'un apres l'autre, sur la plateforme de la generation.
+              Son essai se termine des qu'il atterrit, se crash ou depasse le temps limite. Ensuite,
+              le specimen suivant recommence avec le meme objectif.
+            </p>
+            <p>
+              A la fin de la generation, les specimens sont classes par fitness. Les meilleurs
+              reseaux sont copies, croises et mutes pour creer la generation suivante.
             </p>
             <p>
               La fitness tient aussi compte de la position de la plateforme : une cible eloignee du

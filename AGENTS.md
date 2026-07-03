@@ -89,11 +89,12 @@ and champion storage keys.
   pipe sliders.
 - Lunar Lander Lite has eight inputs (`x`, `altitude`, `vx`, `vy`, `angle`,
   `fuel`, `pad dx`, `spin`) and three outputs (`thrust`, `left`, `right`).
-  Each specimen can play up to five attempts per generation, stopping early on
-  a successful landing. The displayed score is the total successful landings in
-  the generation, while fitness is cumulative across attempts. Landers should
-  spawn from the center of the simulation, while pads may appear across the full
-  visible width. Target-oriented fitness rewards are multiplied by pad
+  Lunar uses sequential evaluation: one specimen plays one terminal attempt,
+  then the next specimen starts on the same generation platform. Landing,
+  crashing, or timing out ends that specimen's turn. The displayed score is the
+  total successful landings accumulated by the current generation. Landers
+  should spawn from the center of the simulation, while pads may appear across
+  the full visible width. Target-oriented fitness rewards are multiplied by pad
   difficulty, so reaching or landing on edge targets is worth more than doing
   the same on a central target. Do not multiply generic survival/stability by
   pad difficulty; otherwise agents learn to drift toward edges. Penalize

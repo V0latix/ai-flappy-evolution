@@ -309,9 +309,13 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /LUNAR_INPUT_LABELS/);
   assert.match(script, /createLunarGame/);
   assert.match(script, /outputLabels: \["thrust", "left", "right"\]/);
-  assert.match(script, /scoreMetric\(nextAgents\)/);
+  assert.match(script, /sequential: true/);
+  assert.match(script, /startAgent\(agent, targetWorld\)/);
+  assert.match(script, /sequentialScore\(nextAgents\)/);
   assert.match(script, /agent\.score \+= 1/);
-  assert.match(script, /const MAX_ATTEMPTS = 5/);
+  assert.doesNotMatch(script, /const MAX_ATTEMPTS/);
+  assert.doesNotMatch(script, /resetLander\(agent, targetWorld, false\)/);
+  assert.doesNotMatch(script, /targetCtx\.setLineDash/);
   assert.match(script, /const EARTH_GRAVITY_ACCEL = 0\.42/);
   assert.match(script, /lunarGravityG\(\) \* EARTH_GRAVITY_ACCEL/);
   assert.match(script, /const SIDE_THRUST_ASSIST = 1\.55/);
@@ -323,7 +327,6 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /targetReward \* padDifficulty/);
   assert.match(script, /agent\.vx \* signedPadDx < -0\.08/);
   assert.match(script, /wallPenalty \* 2\.8/);
-  assert.match(script, /resetLander\(agent, targetWorld, false\)/);
   assert.match(script, /next gap/);
   assert.match(script, /pad dx/);
 });
@@ -373,11 +376,13 @@ test("game picker switches to Lunar Lander with dedicated sliders and network sh
   assert.equal(element(harness, "lunarSettings").classList.contains("is-hidden"), false);
   assert.equal(element(harness, "lunarSettings").classList.contains("settings-visible"), true);
   assert.equal(element(harness, "presetPanel").hidden, true);
-  assert.equal(element(harness, "aliveLabel").textContent, "Alive");
+  assert.equal(element(harness, "aliveLabel").textContent, "Specimen");
+  assert.equal(element(harness, "alive").textContent, "1/28");
   assert.equal(element(harness, "speedLabel").textContent, "Training speed");
   assert.equal(element(harness, "population").value, 28);
   assert.equal(element(harness, "mutation").value, "0.16");
   assert.equal(element(harness, "distanceLabel").textContent, "Pad distance");
+  assert.equal(element(harness, "leaderFitnessLabel").textContent, "Specimen fitness");
   assert.equal(element(harness, "speed").value, 7);
   assert.equal(element(harness, "speed").max, 28);
   assert.equal(element(harness, "lunarGravityValue").textContent, "0.17g");

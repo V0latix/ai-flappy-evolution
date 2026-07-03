@@ -19,8 +19,8 @@ The app currently runs entirely in the browser and includes:
 - Generation-by-generation training
 - Live metrics and a neural-network visualizer for the current champion
 - Flappy Bird with six inputs, including the following pipe gap
-- Lunar Lander Lite with eight inputs for position, velocity, angle, fuel, pad
-  distance, and spin, plus thrust/left/right outputs
+- Sequential Lunar Lander Lite with eight inputs for position, velocity, angle,
+  fuel, pad distance, and spin, plus thrust/left/right outputs
 - Human play mode with the space bar for Flappy Bird and space plus arrows/A/D
   for Lunar Lander
 - Local champion save/load via browser storage
@@ -37,12 +37,12 @@ single flap decision.
 `Lunar Lander Lite` trains agents to land a small craft on a platform. The
 network observes horizontal position, altitude, horizontal and vertical speed,
 angle, fuel, distance to the landing pad, and spin. Its outputs control main
-thrust, rotation left, and rotation right. Each specimen can replay up to five
-attempts inside the same generation, stopping early when it lands successfully.
-The visible score is the total number of successful landings in the generation.
-Fitness is cumulative across all attempts, so a specimen is selected for both
-landing success and useful partial behavior: moving toward the pad, slowing
-descent, staying upright, and saving fuel.
+thrust, rotation left, and rotation right. Lunar specimens are evaluated one at
+a time. Each specimen gets one terminal attempt on the generation's platform:
+landing, crashing, or timing out ends its turn and starts the next specimen.
+At generation end, selection keeps the strongest fitness, then crossover and
+mutation create the next generation. The visible score is the total successful
+landings accumulated by the generation so far.
 Lunar gravity is configured as a fraction of Earth gravity: the default `0.17g`
 is close to the Moon's gravity.
 The Lunar fitness also weights target-oriented rewards by pad difficulty:
