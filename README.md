@@ -19,9 +19,8 @@ The app currently runs entirely in the browser and includes:
 - Generation-by-generation training
 - Live metrics and a neural-network visualizer for the current champion
 - Flappy Bird with six inputs, including the following pipe gap
-- Sequential Lunar Lander Lite with ten inputs for position, velocity, angle,
-  fuel, pad distance, spin, desired horizontal velocity, and pad alignment,
-  plus thrust/left/right outputs
+- Sequential Lunar Lander Lite with eight inputs for position, velocity, angle,
+  fuel, pad distance, and spin, plus thrust/left/right outputs
 - Human play mode with the space bar for Flappy Bird and space plus arrows/A/D
   for Lunar Lander
 - Local champion save/load via browser storage
@@ -37,12 +36,10 @@ single flap decision.
 
 `Lunar Lander Lite` trains agents to land a small craft on a platform. The
 network observes horizontal position, altitude, horizontal and vertical speed,
-angle, fuel, distance to the landing pad, spin, desired horizontal velocity,
-and pad alignment. Its outputs control main thrust, rotation left, and rotation
-right. Lunar specimens are evaluated one at a time. Each generation creates one
-landing-pad sequence shared by every specimen. The first targets are deliberately
-away from the center spawn so passive vertical falling is not a useful shortcut.
-Each specimen starts on the first target in that sequence; a
+angle, fuel, distance to the landing pad, and spin. Its outputs control main
+thrust, rotation left, and rotation right. Lunar specimens are evaluated one at
+a time. Each generation creates one landing-pad sequence shared by every
+specimen. Each specimen starts on the first target in that sequence; a
 successful landing adds score and fitness, moves the platform to the next
 target, and restarts the same specimen from a deterministic centered spawn.
 Crashing or timing out ends its turn and starts the next specimen at the first
@@ -56,7 +53,9 @@ The Lunar fitness also weights target-oriented rewards by pad difficulty:
 landing, moving toward, or matching a useful horizontal velocity for a pad near
 an edge is worth more than the same behavior on a central pad. Generic survival
 and stability rewards are not difficulty-weighted, and wall-hugging away from
-the target is penalized.
+the target is penalized. Failed attempts are scored mostly at the terminal
+state from horizontal progress, closest pad distance, active control, and crash
+quality, so passive vertical falling is not a good local optimum.
 
 ## Next Game Ideas
 

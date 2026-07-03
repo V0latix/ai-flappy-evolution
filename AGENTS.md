@@ -87,22 +87,21 @@ and champion storage keys.
 - Flappy Bird pipe controls (`pipeSettings`, `pipeGap`, `pipeSpacing`, and
   `presetPanel`) must be visible only for Flappy Bird. Lunar should never show
   pipe sliders.
-- Lunar Lander Lite has ten inputs (`x`, `altitude`, `vx`, `vy`, `angle`,
-  `fuel`, `pad dx`, `spin`, `target vx`, `pad align`) and three outputs
-  (`thrust`, `left`, `right`).
+- Lunar Lander Lite has eight inputs (`x`, `altitude`, `vx`, `vy`, `angle`,
+  `fuel`, `pad dx`, `spin`) and three outputs (`thrust`, `left`, `right`).
   Lunar uses sequential evaluation with a shared per-generation target
   sequence. One specimen plays at a time, starts from target index 0, and keeps
   playing after a successful landing: score and fitness increase, the platform
   advances to the next target in the sequence, and the lander restarts from the
   same deterministic centered state. Crashing or timing out ends that
   specimen's turn; the next specimen restarts at target index 0 of the same
-  sequence and the same initial state. The first targets in a generated
-  sequence should stay away from the center spawn so passive vertical falling
-  cannot become an early shortcut. The displayed score and best score are
+  sequence and the same initial state. The displayed score and best score are
   the best individual specimen score observed in the current generation, never
   the sum of all specimen scores. Fitness is also optimized per specimen: keep
   maximizing the strongest individual `agent.fitness`, not a generation-wide
-  sum. Landers should spawn from the center of the simulation, while pads may
+  sum. Failed attempts should reward horizontal progress and closest approach
+  mostly at terminal state, not passive stability while falling. Landers should
+  spawn from the center of the simulation, while pads may
   appear across the full visible width. Target-oriented fitness rewards are
   multiplied by pad difficulty, so reaching or landing on edge targets is worth
   more than doing the same on a central target. Do not multiply generic

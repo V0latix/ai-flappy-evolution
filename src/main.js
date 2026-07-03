@@ -73,7 +73,7 @@ const PRESETS = {
 };
 
 const PIPE_INPUT_LABELS = ["height", "velocity", "pipe x", "gap top", "gap bottom", "next gap"];
-const LUNAR_INPUT_LABELS = ["x", "altitude", "vx", "vy", "angle", "fuel", "pad dx", "spin", "target vx", "pad align"];
+const LUNAR_INPUT_LABELS = ["x", "altitude", "vx", "vy", "angle", "fuel", "pad dx", "spin"];
 
 const games = {
   pipe: createPipeGame(),
@@ -985,25 +985,11 @@ function createLunarGame() {
     return clamp(numberValue(ui.lunarThrust, 0.145), 0.115, 0.18);
   }
 
-  function makeSequencePad(index) {
+  function makeSequencePad() {
     const width = landingPadWidth();
     const margin = width / 2;
-    const guidedRatios = [0.28, 0.72, 0.18, 0.82, 0.38, 0.62];
-    const usableWidth = Math.max(1, WIDTH - margin * 2);
-    if (index < guidedRatios.length) {
-      return {
-        x: margin + guidedRatios[index] * usableWidth,
-        width,
-      };
-    }
-
-    const centerExclusion = width / 2 + 56;
-    let x = margin + Math.random() * usableWidth;
-    if (Math.abs(x - WIDTH / 2) < centerExclusion) {
-      x = x < WIDTH / 2 ? WIDTH / 2 - centerExclusion : WIDTH / 2 + centerExclusion;
-    }
     return {
-      x: clamp(x, margin, WIDTH - margin),
+      x: margin + Math.random() * Math.max(1, WIDTH - margin * 2),
       width,
     };
   }
@@ -1047,6 +1033,11 @@ function createLunarGame() {
     agent.pendingRight = false;
     agent.lastDistance = distanceToPad(agent, targetWorld);
     agent.lastPadDx = Math.abs(agent.x - targetWorld.pad.x);
+    agent.startPadDx = agent.lastPadDx;
+    agent.bestPadDx = agent.lastPadDx;
+    agent.horizontalProgress = 0;
+    agent.thrustFrames = 0;
+    agent.steeringFrames = 0;
   }
 
   function advanceLandingTarget(agent, targetWorld) {
@@ -1065,6 +1056,11 @@ function createLunarGame() {
     agent.age = 0;
     agent.lastDistance = 0;
     agent.lastPadDx = 0;
+    agent.startPadDx = 0;
+    agent.bestPadDx = 0;
+    agent.horizontalProgress = 0;
+    agent.thrustFrames = 0;
+    agent.steeringFrames = 0;
     agent.pendingThrust = false;
     agent.pendingLeft = false;
     agent.pendingRight = false;
@@ -1096,8 +1092,6 @@ function createLunarGame() {
       agent.fuel / Math.max(1, agent.initialFuel),
       (targetWorld.pad.x - agent.x) / WIDTH,
       agent.angularV / 0.12,
-      desiredHorizontalVelocity(agent, targetWorld) / 1.35,
-      1 - Math.min(1, Math.abs(targetWorld.pad.x - agent.x) / Math.max(1, targetWorld.pad.width / 2)),
     ];
   }
 
@@ -1152,6 +1146,8 @@ function createLunarGame() {
 
     const previousPadDx = agent.lastPadDx;
     applyLanderControls(agent, controls);
+    if (controls.thrust) agent.thrustFrames += 1;
+    if (controls.left || controls.right) agent.steeringFrames += 1;
 
     agent.vy += lunarGravityAccel();
     agent.x += agent.vx;
@@ -1179,11 +1175,6 @@ function createLunarGame() {
     const wallDistance = Math.min(agent.x, WIDTH - agent.x);
     const wallPenalty = Math.max(0, 1 - wallDistance / 90);
     const padDifficulty = padDifficultyMultiplier(targetWorld);
-    const targetAlignment = 0.2 + Math.max(0, 1 - padDx / 360) * 0.8;
-    let controlReward = 0.2;
-    controlReward += Math.max(0, 1 - speed / 4.2) * 0.35;
-    controlReward += Math.max(0, 1 - Math.abs(agent.vy) / 3.8) * 0.35;
-    controlReward += Math.max(0, 1 - angleAbs / 1.2) * 0.35;
     let targetReward = 0;
     targetReward += Math.max(0, 1 - padDx / 430) * 3.0;
     targetReward += Math.max(0, 1 - velocityError / 2.4) * 2.4;
@@ -1191,9 +1182,11 @@ function createLunarGame() {
     if (horizontalApproach < -0.05) targetReward += horizontalApproach * 0.22;
     agent.lastDistance = distance;
     agent.lastPadDx = padDx;
-    agent.fitness += controlReward * targetAlignment + targetReward * padDifficulty;
+    agent.bestPadDx = Math.min(agent.bestPadDx, padDx);
+    agent.horizontalProgress = Math.max(agent.horizontalProgress, agent.startPadDx - padDx);
+    agent.fitness += targetReward * padDifficulty;
     if (padDx > targetWorld.pad.width / 2 && Math.abs(agent.vx) < 0.08 && altitude < MOON_Y * 0.82) {
-      agent.fitness -= Math.min(3.4, padDx / 120);
+      agent.fitness -= Math.min(7.5, padDx / 80);
     }
     if (padDx > targetWorld.pad.width / 2 && agent.vx * signedPadDx < -0.08) {
       agent.fitness -= Math.min(2.6, Math.abs(agent.vx) * 0.9);
@@ -1216,8 +1209,14 @@ function createLunarGame() {
         agent.fitness += (48000 + agent.score * 9000 + agent.fuel * 40 - agent.age * 1.2) * padDifficulty;
         advanceLandingTarget(agent, targetWorld);
       } else {
+        const progressReward = Math.max(0, agent.horizontalProgress) * 42;
+        const closestReward = Math.max(0, 1 - agent.bestPadDx / Math.max(1, WIDTH / 2)) * 1800;
+        const activeControlReward = Math.min(900, agent.thrustFrames * 3 + agent.steeringFrames * 5);
+        const passiveFallPenalty = agent.horizontalProgress < targetWorld.pad.width * 0.2 ? 2600 : 0;
         const controlledImpact = Math.max(0, 1 - speed / 2.4) * 1000 + Math.max(0, 1 - angleAbs / 0.7) * 700;
+        agent.fitness += progressReward + closestReward + activeControlReward;
         agent.fitness += onPad ? (1400 + controlledImpact) * padDifficulty : 0;
+        agent.fitness -= passiveFallPenalty;
         agent.fitness -= 4200 + padDx * 3.2 + speed * 520 + angleAbs * 900 + altitude * 1.4;
         agent.completed = true;
       }
@@ -1315,7 +1314,7 @@ function createLunarGame() {
     speedLabel: "Training speed",
     populationLabel: "Landers",
     leaderFitnessLabel: "Specimen fitness",
-    inputs: 10,
+    inputs: 8,
     hidden: 8,
     outputs: 3,
     inputLabels: LUNAR_INPUT_LABELS,
@@ -1355,6 +1354,11 @@ function createLunarGame() {
         age: 0,
         lastDistance: 0,
         lastPadDx: 0,
+        startPadDx: 0,
+        bestPadDx: 0,
+        horizontalProgress: 0,
+        thrustFrames: 0,
+        steeringFrames: 0,
         pendingThrust: false,
         pendingLeft: false,
         pendingRight: false,

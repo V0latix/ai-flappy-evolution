@@ -305,10 +305,10 @@ test("static app includes every primary control and asset reference", async () =
   assert.doesNotMatch(script, /createSnakeGame|gameSnake|SNAKE_INPUT_LABELS/);
   assert.doesNotMatch(script, /createPongGame|gamePong|PONG_INPUT_LABELS|pongSettings/);
   assert.match(script, /inputs: 6/);
-  assert.match(script, /inputs: 10/);
+  assert.match(script, /inputs: 8/);
   assert.match(script, /LUNAR_INPUT_LABELS/);
-  assert.match(script, /"target vx"/);
-  assert.match(script, /"pad align"/);
+  assert.doesNotMatch(script, /"target vx"/);
+  assert.doesNotMatch(script, /"pad align"/);
   assert.match(script, /createLunarGame/);
   assert.match(script, /outputLabels: \["thrust", "left", "right"\]/);
   assert.match(script, /sequential: true/);
@@ -318,8 +318,8 @@ test("static app includes every primary control and asset reference", async () =
   assert.doesNotMatch(script, /nextAgents\.reduce\(\(total, agent\) => total \+ agent\.score, 0\)/);
   assert.match(script, /agent\.score \+= 1/);
   assert.match(script, /makeTargetSequence/);
-  assert.match(script, /makeSequencePad\(index\)/);
-  assert.match(script, /const guidedRatios = \[0\.28, 0\.72, 0\.18, 0\.82, 0\.38, 0\.62\]/);
+  assert.match(script, /makeSequencePad\(\)/);
+  assert.doesNotMatch(script, /const guidedRatios/);
   assert.match(script, /advanceLandingTarget\(agent, targetWorld\)/);
   assert.match(script, /targetWorld\.targetIndex = 0/);
   assert.match(script, /targetWorld\.pad = targetWorld\.targetSequence\[targetWorld\.targetIndex\]/);
@@ -340,7 +340,8 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /function desiredHorizontalVelocity\(agent, targetWorld\)/);
   assert.match(script, /const previousPadDx = agent\.lastPadDx/);
   assert.match(script, /const horizontalApproach = previousPadDx - padDx/);
-  assert.match(script, /controlReward \* targetAlignment/);
+  assert.match(script, /agent\.horizontalProgress = Math\.max\(agent\.horizontalProgress, agent\.startPadDx - padDx\)/);
+  assert.match(script, /const passiveFallPenalty = agent\.horizontalProgress < targetWorld\.pad\.width \* 0\.2 \? 2600 : 0/);
   assert.match(script, /targetReward \* padDifficulty/);
   assert.match(script, /48000 \+ agent\.score \* 9000/);
   assert.match(script, /agent\.fitness -= 4200 \+ padDx \* 3\.2 \+ speed \* 520 \+ angleAbs \* 900 \+ altitude \* 1\.4/);
@@ -414,7 +415,7 @@ test("game picker switches to Lunar Lander with dedicated sliders and network sh
 
   const networkCalls = element(harness, "network").getContext().calls;
   const labels = networkCalls.filter((call) => call.type === "fillText").map((call) => call.text);
-  assert.deepEqual(labels.slice(0, 10), [
+  assert.deepEqual(labels.slice(0, 8), [
     "x",
     "altitude",
     "vx",
@@ -423,8 +424,6 @@ test("game picker switches to Lunar Lander with dedicated sliders and network sh
     "fuel",
     "pad dx",
     "spin",
-    "target vx",
-    "pad align",
   ]);
   assert.equal(labels.includes("thrust"), true);
   assert.equal(labels.includes("left"), true);
@@ -543,8 +542,8 @@ test("Lunar champions are saved under the Lunar key with compatible genome lengt
   const saved = JSON.parse(harness.storage.getItem(lunarChampionStorageKey));
 
   assert.equal(saved.game, "lunar");
-  assert.equal(saved.genome.length, 115);
-  assert.equal(saved.inputs, 10);
+  assert.equal(saved.genome.length, 99);
+  assert.equal(saved.inputs, 8);
   assert.equal(saved.hidden, 8);
   assert.equal(saved.outputs, 3);
 
