@@ -1652,11 +1652,15 @@ function createHillClimbGame() {
   const CODE_BULLET_RIM_RESTITUTION = 0.2;
   const CODE_BULLET_SUSPENSION_FREQUENCY = 70;
   const CODE_BULLET_SUSPENSION_DAMPING = 25;
-  const HILL_MAX_SPIN = 0.068;
+  const HILL_MAX_SPIN = 0.085;
   const HILL_GROUND_TILT = 0.00026;
   const HILL_AIR_TILT = 0.0024;
+  const HILL_BRAKE_FORCE = 0.42;
+  const HILL_AIR_PEDAL_TORQUE = 0.0032;
   const WHEEL_BASE_STIFFNESS = 0.58;
-  const CHASSIS_ANGLE_FOLLOW = 0.18;
+  const CHASSIS_ANGLE_FOLLOW = 0.14;
+  const HILL_AIR_ANGLE_FOLLOW = 0.006;
+  const HILL_AIR_ROTATION_DAMPING = 0.996;
   const CHASSIS_BODY_LIFT = 45;
   const CHASSIS_SCRAPE_LIMIT = 40;
   const CHASSIS_HARD_IMPACT_SPEED = 7.2;
@@ -1789,7 +1793,7 @@ function createHillClimbGame() {
     agent.upsideDownFrames = 0;
     agent.stalledFrames = 0;
     agent.crashed = false;
-    agent.controls = { gas: false, left: false, right: false };
+    agent.controls = { gas: false, brake: false };
   }
 
   function nextItem(agent, items, collected) {
@@ -1820,12 +1824,10 @@ function createHillClimbGame() {
   }
 
   function chooseAction(agent, targetWorld) {
-    const [gasOutput, leftOutput, rightOutput] = feedForward(agent.genome, inputsFor(agent, targetWorld));
-    const tiltDifference = leftOutput - rightOutput;
+    const [gasOutput, brakeOutput] = feedForward(agent.genome, inputsFor(agent, targetWorld));
     return {
-      gas: gasOutput > 0.52,
-      left: tiltDifference > 0.08 && leftOutput > 0.5,
-      right: tiltDifference < -0.08 && rightOutput > 0.5,
+      gas: gasOutput > 0.52 && gasOutput >= brakeOutput,
+      brake: brakeOutput > 0.52 && brakeOutput > gasOutput,
     };
   }
 
@@ -1854,6 +1856,10 @@ function createHillClimbGame() {
       tangentSpeed += wheelTangentialGravity(ground) * dt;
       if (agent.fuel > 0) {
         tangentSpeed += applyCodeBulletMotor(wheel, side, action, dt);
+      }
+      if (action.brake && wheel.contact) {
+        tangentSpeed *= Math.max(0.2, 1 - HILL_BRAKE_FORCE * dt);
+        wheel.angularVelocity *= Math.max(0.25, 1 - HILL_BRAKE_FORCE * 1.4 * dt);
       }
       const rollingSpeed = -wheel.angularVelocity * WHEEL_RADIUS * 0.016;
       const slip = rollingSpeed - tangentSpeed;
@@ -1909,7 +1915,7 @@ function createHillClimbGame() {
     const targetX = midpointX - Math.sin(wheelAngle) * CHASSIS_BODY_LIFT;
     const targetY = midpointY - Math.cos(wheelAngle) * CHASSIS_BODY_LIFT;
     const grounded = rear.contact || front.contact;
-    const tilt = action.left ? -1 : action.right ? 1 : 0;
+    const pedalTilt = action.gas ? -1 : action.brake ? 1 : 0;
 
     const jointPull = grounded ? Math.min(0.52, CODE_BULLET_SUSPENSION_FREQUENCY / 150) : 0.12;
     const jointDamping = grounded ? 1 / (1 + CODE_BULLET_SUSPENSION_DAMPING * 0.018) : 0.985;
@@ -1921,11 +1927,12 @@ function createHillClimbGame() {
     agent.y += agent.vy * dt;
     agent.y += (targetY - agent.y) * jointPull;
 
-    agent.angularVelocity += normalizeAngle(wheelAngle - agent.angle) * (grounded ? CHASSIS_ANGLE_FOLLOW : 0.025);
-    agent.angularVelocity += tilt * (grounded ? HILL_GROUND_TILT : HILL_AIR_TILT);
+    agent.angularVelocity += normalizeAngle(wheelAngle - agent.angle) * (grounded ? CHASSIS_ANGLE_FOLLOW : HILL_AIR_ANGLE_FOLLOW);
+    agent.angularVelocity += pedalTilt * (grounded ? HILL_GROUND_TILT : HILL_AIR_TILT);
+    if (!grounded) agent.angularVelocity += pedalTilt * HILL_AIR_PEDAL_TORQUE * dt;
     agent.angularVelocity = clamp(agent.angularVelocity, -HILL_MAX_SPIN, HILL_MAX_SPIN);
     agent.angle += agent.angularVelocity * dt;
-    agent.angularVelocity *= grounded ? 0.78 : 0.985;
+    agent.angularVelocity *= grounded ? 0.78 : HILL_AIR_ROTATION_DAMPING;
   }
 
   function chassisCollisionPoints(agent) {
@@ -2009,7 +2016,7 @@ function createHillClimbGame() {
 
     agent.age += 1;
     agent.fuel = Math.max(0, agent.fuel - 1);
-    const effectiveAction = agent.fuel > 0 ? action : { gas: false, left: action.left, right: action.right };
+    const effectiveAction = agent.fuel > 0 ? action : { gas: false, brake: action.brake };
     agent.frontContact = false;
     agent.rearContact = false;
 
@@ -2280,7 +2287,7 @@ function createHillClimbGame() {
     key: "hill",
     title: "Hill Climb",
     objective: "Les agents apprennent a rouler le plus loin possible en gerant l'equilibre, les sauts et le carburant.",
-    hint: "IA: un specimen fait une course complete. Humain: haut/W pour gaz, gauche/A et droite/D pour incliner.",
+    hint: "IA: un specimen fait une course complete. Humain: droite/W/haut pour gaz, gauche/A/bas pour brake.",
     sequential: true,
     defaultPopulation: 10,
     defaultMutation: 0.1,
@@ -2291,9 +2298,9 @@ function createHillClimbGame() {
     leaderFitnessLabel: "Current specimen",
     inputs: 14,
     hidden: DEFAULT_HIDDEN,
-    outputs: 3,
+    outputs: 2,
     inputLabels: HILL_INPUT_LABELS,
-    outputLabels: ["gas", "tilt L", "tilt R"],
+    outputLabels: ["gas", "brake"],
     outputLabel: "Drive",
     distanceLabel: "Distance",
     championStorageKey: HILL_CHAMPION_STORAGE_KEY,
@@ -2354,17 +2361,17 @@ function createHillClimbGame() {
         ArrowUp: "gas",
         KeyW: "gas",
         Space: "gas",
-        ArrowLeft: "left",
-        KeyA: "left",
-        ArrowRight: "right",
-        KeyD: "right",
+        ArrowRight: "gas",
+        KeyD: "gas",
+        ArrowLeft: "brake",
+        KeyA: "brake",
+        ArrowDown: "brake",
+        KeyS: "brake",
       };
       const action = actions[event.code];
       if (!action) return false;
       if (!agent.alive) resetHillAgent(agent);
       agent.controls[action] = true;
-      if (action === "left") agent.controls.right = false;
-      if (action === "right") agent.controls.left = false;
       return true;
     },
     handleHumanKeyUp(event, agent) {
@@ -2373,10 +2380,12 @@ function createHillClimbGame() {
         ArrowUp: "gas",
         KeyW: "gas",
         Space: "gas",
-        ArrowLeft: "left",
-        KeyA: "left",
-        ArrowRight: "right",
-        KeyD: "right",
+        ArrowRight: "gas",
+        KeyD: "gas",
+        ArrowLeft: "brake",
+        KeyA: "brake",
+        ArrowDown: "brake",
+        KeyS: "brake",
       };
       const action = actions[event.code];
       if (!action) return false;

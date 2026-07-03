@@ -329,7 +329,7 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /createLunarGame/);
   assert.match(script, /createHillClimbGame/);
   assert.match(script, /outputLabels: \["thrust", "left", "right"\]/);
-  assert.match(script, /outputLabels: \["gas", "tilt L", "tilt R"\]/);
+  assert.match(script, /outputLabels: \["gas", "brake"\]/);
   assert.match(script, /const CHASSIS_WIDTH = 125/);
   assert.match(script, /const CHASSIS_HEIGHT = 40/);
   assert.match(script, /const WHEEL_RADIUS = 17/);
@@ -344,11 +344,15 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /const CODE_BULLET_RIM_RESTITUTION = 0\.2/);
   assert.match(script, /const CODE_BULLET_SUSPENSION_FREQUENCY = 70/);
   assert.match(script, /const CODE_BULLET_SUSPENSION_DAMPING = 25/);
-  assert.match(script, /const HILL_MAX_SPIN = 0\.068/);
+  assert.match(script, /const HILL_MAX_SPIN = 0\.085/);
   assert.match(script, /const HILL_GROUND_TILT = 0\.00026/);
   assert.match(script, /const HILL_AIR_TILT = 0\.0024/);
+  assert.match(script, /const HILL_BRAKE_FORCE = 0\.42/);
+  assert.match(script, /const HILL_AIR_PEDAL_TORQUE = 0\.0032/);
   assert.match(script, /const WHEEL_BASE_STIFFNESS = 0\.58/);
-  assert.match(script, /const CHASSIS_ANGLE_FOLLOW = 0\.18/);
+  assert.match(script, /const CHASSIS_ANGLE_FOLLOW = 0\.14/);
+  assert.match(script, /const HILL_AIR_ANGLE_FOLLOW = 0\.006/);
+  assert.match(script, /const HILL_AIR_ROTATION_DAMPING = 0\.996/);
   assert.match(script, /const CHASSIS_BODY_LIFT = 45/);
   assert.match(script, /const CHASSIS_SCRAPE_LIMIT = 40/);
   assert.match(script, /const CHASSIS_HARD_IMPACT_SPEED = 7\.2/);
@@ -373,7 +377,12 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /drawRollCage\(targetCtx\)/);
   assert.match(script, /function drawHillDistanceBadge\(targetCtx, currentScore\)/);
   assert.match(script, /targetCtx\.fillText\(`\$\{currentScore\} m`/);
-  assert.match(script, /tilt \* \(grounded \? HILL_GROUND_TILT : HILL_AIR_TILT\)/);
+  assert.doesNotMatch(script, /tilt L/);
+  assert.doesNotMatch(script, /tilt R/);
+  assert.match(script, /const pedalTilt = action\.gas \? -1 : action\.brake \? 1 : 0/);
+  assert.match(script, /pedalTilt \* \(grounded \? HILL_GROUND_TILT : HILL_AIR_TILT\)/);
+  assert.match(script, /grounded \? CHASSIS_ANGLE_FOLLOW : HILL_AIR_ANGLE_FOLLOW/);
+  assert.match(script, /grounded \? 0\.78 : HILL_AIR_ROTATION_DAMPING/);
   assert.doesNotMatch(script, /UNCORRECTED_GAS/);
   assert.doesNotMatch(script, /uncorrectedGasFrames/);
   assert.match(script, /const rear = suspensionWheel\(agent, -1\);/);
@@ -384,6 +393,8 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /deepest > CHASSIS_SCRAPE_LIMIT/);
   assert.doesNotMatch(script, /function applyForce\(agent, point, forceX, forceY/);
   assert.doesNotMatch(script, /function applyWheel\(agent, side, action, contact\)/);
+  assert.match(script, /if \(action\.brake && wheel\.contact\)/);
+  assert.match(script, /tangentSpeed \*= Math\.max\(0\.2, 1 - HILL_BRAKE_FORCE \* dt\)/);
   assert.doesNotMatch(script, /side < 0 \? 0\.11 : 0\.075/);
   assert.match(script, /\{ x: 4480, y: 286 \}/);
   assert.match(script, /\{ x: 4760, y: 492 \}/);
@@ -566,8 +577,9 @@ test("game picker switches to Hill Climb with sequential run controls and networ
     "coin y",
   ]);
   assert.equal(labels.includes("gas"), true);
-  assert.equal(labels.includes("tilt L"), true);
-  assert.equal(labels.includes("tilt R"), true);
+  assert.equal(labels.includes("brake"), true);
+  assert.equal(labels.includes("tilt L"), false);
+  assert.equal(labels.includes("tilt R"), false);
 });
 
 test("training controls evolve generations and difficulty presets update numeric settings", async () => {
@@ -649,7 +661,7 @@ test("Lunar human mode uses thrust and rotation controls", async () => {
   assert.equal(element(harness, "activeGameTitle").textContent, "Lunar Lander Lite");
 });
 
-test("Hill Climb human mode uses gas and tilt keys", async () => {
+test("Hill Climb human mode uses gas and brake keys", async () => {
   const harness = await loadHarness();
 
   element(harness, "gameHill").click();
@@ -734,10 +746,10 @@ test("Hill Climb champions are saved under the Hill Climb key with compatible ge
   const saved = JSON.parse(harness.storage.getItem(hillChampionStorageKey));
 
   assert.equal(saved.game, "hill");
-  assert.equal(saved.genome.length, 129);
+  assert.equal(saved.genome.length, 121);
   assert.equal(saved.inputs, 14);
   assert.equal(saved.hidden, 7);
-  assert.equal(saved.outputs, 3);
+  assert.equal(saved.outputs, 2);
 
   element(harness, "loadChampion").click();
   harness.runFrame();

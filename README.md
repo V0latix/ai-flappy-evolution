@@ -22,11 +22,11 @@ The app currently runs entirely in the browser and includes:
 - Sequential Lunar Lander Lite with eight inputs for position, velocity, angle,
   fuel, pad distance, and spin, plus thrust/left/right outputs
 - Sequential Hill Climb with fourteen inputs for vehicle motion, angle, fuel,
-  wheel contact, terrain slope, upcoming fuel, and coins, plus gas/tilt outputs
+  wheel contact, terrain slope, upcoming fuel, and coins, plus gas/brake outputs
 - Hill Climb coins, fuel cans, flips, and a fixed original countryside terrain
   with increasing difficulty
 - Human play mode with the space bar for Flappy Bird and space plus arrows/A/D
-  for Lunar Lander. Hill Climb uses up/W for gas and left/right or A/D for tilt
+  for Lunar Lander. Hill Climb uses right/up/W/D for gas and left/down/A/S for brake
 - Local champion save/load via browser storage
 - Flappy Bird difficulty presets for gap, spacing, speed, and mutation
 - Lunar-specific sliders for gravity in Earth-g units, initial fuel, platform
@@ -65,10 +65,12 @@ quality, so passive vertical falling is not a good local optimum.
 `Hill Climb` trains two-wheel vehicle agents on an original fixed countryside
 course. The network observes velocity, angle, spin, fuel, wheel contact, terrain
 slope, upcoming terrain, the next fuel can, and the next useful coin. The
-outputs are gas, tilt left, and tilt right. Fuel decreases with time only, so
-long-distance progress depends on keeping enough pace to reach fuel cans. The
-fitness score is dominated by maximum distance, with smaller bonuses for coins,
-survived flips, and remaining fuel.
+outputs are gas and brake. Fuel decreases with time only, so long-distance
+progress depends on keeping enough pace to reach fuel cans. Gas and brake also
+affect the vehicle's rotation in the air, matching the original two-pedal
+control model more closely than separate tilt buttons. The fitness score is
+dominated by maximum distance, with smaller bonuses for coins, survived flips,
+and remaining fuel.
 
 ## Next Game Ideas
 
@@ -128,7 +130,7 @@ environment.
 - `Fuel initial`: change Lunar Lander starting fuel and restart Lunar training
 - `Taille plateforme`: change the Lunar landing platform width
 - `Puissance moteur`: change Lunar Lander thrust strength
-- `Hill Climb`: use up/W for gas and left/right or A/D for tilt
+- `Hill Climb`: use right/up/W/D for gas and left/down/A/S for brake
 - `Save` / `Load` / `Clear`: manage the best saved champion in local browser
   storage
 - `Preset difficulte`: apply easy, normal, hard, or chaos training settings
