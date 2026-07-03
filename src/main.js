@@ -1530,9 +1530,19 @@ function createHillClimbGame() {
   const HILL_GRAVITY = 0.34;
   const HILL_GRAVITY_ROLL = 0.18;
   const HILL_MASS = 1.55;
-  const HILL_ROTATIONAL_INERTIA = 2.8;
-  const HILL_MAX_SPIN = 0.105;
+  const HILL_ROTATIONAL_INERTIA = 5.4;
+  const HILL_MAX_SPIN = 0.052;
+  const HILL_GROUND_TILT = 0.00025;
+  const HILL_AIR_TILT = 0.00145;
+  const HILL_PITCH_STABILITY = 0.018;
+  const HILL_PITCH_DAMPING = 0.88;
   const HILL_SUBSTEPS = 3;
+  const SUSPENSION_REST_LENGTH = 42;
+  const SUSPENSION_TRAVEL = 28;
+  const SUSPENSION_STIFFNESS = 0.036;
+  const SUSPENSION_DAMPING = 0.34;
+  const SUSPENSION_FORCE_LIMIT = 1.15;
+  const ANTI_ROLL_STRENGTH = 0.0025;
   const MAX_FUEL = 1200;
   const START_X = 120;
   const START_Y_OFFSET = 76;
@@ -1542,7 +1552,7 @@ function createHillClimbGame() {
     6460, 7040, 7600, 8450, 9100, 9900, 10600, 11400, 12200, 13050, 13800, 14600, 15400,
     16250, 17100, 18100, 19100, 20200, 21200, 21850,
   ];
-  const COIN_LIFTS = [58, 42, 50];
+  const COIN_LIFTS = [42, 32, 38];
   const FUEL_X = [1050, 2180, 3420, 4920, 6420, 7420, 9000, 10800, 12800, 15000, 17300, 19600, 21400];
 
   function smoothstep(value) {
@@ -1592,8 +1602,19 @@ function createHillClimbGame() {
     };
   }
 
+  function suspensionWheel(agent, side) {
+    const localX = side * WHEEL_BASE * 0.5;
+    const mount = localPoint(agent, localX, CHASSIS_HEIGHT * 0.02);
+    const rest = localPoint(agent, localX, CHASSIS_HEIGHT * 0.02 + SUSPENSION_REST_LENGTH);
+    const ground = terrainAt(rest.x);
+    const rawCompression = rest.y + WHEEL_RADIUS - ground.y;
+    const compression = clamp(rawCompression, 0, SUSPENSION_TRAVEL);
+    const wheel = localPoint(agent, localX, CHASSIS_HEIGHT * 0.02 + SUSPENSION_REST_LENGTH - compression);
+    return { mount, wheel, ground, compression, hasContact: rawCompression > 0 };
+  }
+
   function wheelPoint(agent, side) {
-    return localPoint(agent, side * WHEEL_BASE * 0.5, CHASSIS_HEIGHT * 0.36);
+    return suspensionWheel(agent, side).wheel;
   }
 
   function normalizeAngle(angle) {
@@ -1687,21 +1708,22 @@ function createHillClimbGame() {
     return clamp(HILL_GRAVITY * ground.slope * HILL_GRAVITY_ROLL, -0.065, 0.065);
   }
 
-  function applyWheel(agent, side, action) {
-    const wheel = wheelPoint(agent, side);
-    const ground = terrainAt(wheel.x);
-    const penetration = wheel.y + WHEEL_RADIUS - ground.y;
-    if (penetration <= 0) return false;
-
+  function applyWheel(agent, side, action, contact) {
+    const { wheel, ground, compression, hasContact } = contact;
+    if (!hasContact) return false;
     const normalLength = Math.hypot(ground.slope, 1) || 1;
     const normal = { x: -ground.slope / normalLength, y: -1 / normalLength };
     const tangent = { x: 1 / normalLength, y: ground.slope / normalLength };
     const velocity = pointVelocity(agent, wheel);
     const normalVelocity = velocity.x * normal.x + velocity.y * normal.y;
     const tangentVelocity = velocity.x * tangent.x + velocity.y * tangent.y;
-    const suspension = Math.max(0, penetration * 0.18 - normalVelocity * 0.1);
+    const springForce = clamp(
+      compression * SUSPENSION_STIFFNESS - Math.min(normalVelocity, 0) * SUSPENSION_DAMPING,
+      0,
+      SUSPENSION_FORCE_LIMIT,
+    );
 
-    applyForce(agent, wheel, normal.x * suspension, normal.y * suspension);
+    applyForce(agent, wheel, normal.x * springForce, normal.y * springForce);
 
     const rollForce = slopeGravityForce(ground);
     applyForce(agent, wheel, tangent.x * rollForce, tangent.y * rollForce);
@@ -1715,6 +1737,22 @@ function createHillClimbGame() {
     }
 
     return true;
+  }
+
+  function applyAntiRoll(agent, rear, front) {
+    if (!rear.hasContact || !front.hasContact) return;
+    const difference = rear.compression - front.compression;
+    if (Math.abs(difference) < 0.5) return;
+    const torque = clamp(difference * ANTI_ROLL_STRENGTH, -0.025, 0.025);
+    agent.angularVelocity -= torque / HILL_ROTATIONAL_INERTIA;
+  }
+
+  function applyPitchStability(agent, rear, front) {
+    if (!rear.hasContact || !front.hasContact) return;
+    const wheelPitch = Math.atan2(front.wheel.y - rear.wheel.y, front.wheel.x - rear.wheel.x);
+    const pitchError = normalizeAngle(agent.angle - wheelPitch);
+    agent.angularVelocity -= pitchError * HILL_PITCH_STABILITY;
+    agent.angularVelocity *= HILL_PITCH_DAMPING;
   }
 
   function chassisCollisionPoints(agent) {
@@ -1800,14 +1838,18 @@ function createHillClimbGame() {
 
     for (let i = 0; i < HILL_SUBSTEPS; i += 1) {
       agent.vy += HILL_GRAVITY / HILL_SUBSTEPS;
-      const rearContact = applyWheel(agent, -1, effectiveAction);
-      const frontContact = applyWheel(agent, 1, effectiveAction);
+      const rear = suspensionWheel(agent, -1);
+      const front = suspensionWheel(agent, 1);
+      const rearContact = applyWheel(agent, -1, effectiveAction, rear);
+      const frontContact = applyWheel(agent, 1, effectiveAction, front);
+      applyAntiRoll(agent, rear, front);
+      applyPitchStability(agent, rear, front);
       agent.rearContact = agent.rearContact || rearContact;
       agent.frontContact = agent.frontContact || frontContact;
 
       const grounded = rearContact || frontContact;
       const tilt = effectiveAction.left ? -1 : effectiveAction.right ? 1 : 0;
-      agent.angularVelocity += tilt * (grounded ? 0.0012 : 0.0038);
+      agent.angularVelocity += tilt * (grounded ? HILL_GROUND_TILT : HILL_AIR_TILT);
       agent.angularVelocity = clamp(agent.angularVelocity, -HILL_MAX_SPIN, HILL_MAX_SPIN);
 
       agent.x += agent.vx / HILL_SUBSTEPS;
@@ -1941,19 +1983,28 @@ function createHillClimbGame() {
 
   function drawVehicle(targetCtx, agent, cameraX) {
     const screenX = agent.x - cameraX;
-    const rear = wheelPoint(agent, -1);
-    const front = wheelPoint(agent, 1);
+    const rear = suspensionWheel(agent, -1);
+    const front = suspensionWheel(agent, 1);
 
     targetCtx.strokeStyle = "rgba(23,32,38,0.55)";
-    targetCtx.lineWidth = 4;
+    targetCtx.lineWidth = 5;
     targetCtx.beginPath();
-    targetCtx.moveTo(rear.x - cameraX, rear.y);
-    targetCtx.lineTo(screenX - 26, agent.y + 5);
-    targetCtx.moveTo(front.x - cameraX, front.y);
-    targetCtx.lineTo(screenX + 26, agent.y + 5);
+    targetCtx.moveTo(rear.wheel.x - cameraX, rear.wheel.y);
+    targetCtx.lineTo(rear.mount.x - cameraX, rear.mount.y);
+    targetCtx.moveTo(front.wheel.x - cameraX, front.wheel.y);
+    targetCtx.lineTo(front.mount.x - cameraX, front.mount.y);
     targetCtx.stroke();
 
-    for (const wheel of [rear, front]) {
+    targetCtx.strokeStyle = "#c9d5d1";
+    targetCtx.lineWidth = 2;
+    targetCtx.beginPath();
+    targetCtx.moveTo(rear.wheel.x - cameraX, rear.wheel.y);
+    targetCtx.lineTo(rear.mount.x - cameraX, rear.mount.y);
+    targetCtx.moveTo(front.wheel.x - cameraX, front.wheel.y);
+    targetCtx.lineTo(front.mount.x - cameraX, front.mount.y);
+    targetCtx.stroke();
+
+    for (const { wheel } of [rear, front]) {
       targetCtx.fillStyle = "#172026";
       targetCtx.beginPath();
       targetCtx.arc(wheel.x - cameraX, wheel.y, WHEEL_RADIUS, 0, Math.PI * 2);
