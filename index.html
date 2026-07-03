@@ -47,6 +47,10 @@
             <button id="gameLunar" class="game-tab" type="button">
               <strong>Lunar Lander</strong>
             </button>
+            <button id="gameHill" class="game-tab" type="button">
+              <strong>Hill Climb</strong>
+              <span>Collines, carburant, flips</span>
+            </button>
           </section>
 
           <div class="stage-wrap">
@@ -127,6 +131,25 @@
               Cette ponderation ne recompense pas le bord lui-meme : elle valorise le fait de se
               rapprocher de la plateforme, d'avoir une vitesse horizontale orientee vers elle et de
               ne pas rester colle a un mur quand la cible est ailleurs.
+            </p>
+          </section>
+
+          <section id="explanationHill" class="panel-section explanation is-hidden">
+            <h2>Comment Hill Climb apprend</h2>
+            <p>
+              Chaque specimen pilote une voiture a deux roues sur un niveau vallonne fixe. Le reseau
+              observe la vitesse, l'angle, l'adherence, le carburant et les prochains bonus. Il
+              choisit gaz, tilt gauche et tilt droite.
+            </p>
+            <p>
+              Le carburant baisse uniquement avec le temps. Les bidons permettent donc de prolonger
+              la course, tandis que les pieces et les flips ajoutent des bonus secondaires. La
+              distance reste le facteur dominant du fitness.
+            </p>
+            <p>
+              Le terrain devient plus difficile avec la distance : depart doux, longues collines,
+              bosses plus rapprochees, rampes naturelles, puis pentes raides et receptions plus
+              exigeantes.
             </p>
           </section>
         </div>

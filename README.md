@@ -3,16 +3,16 @@
 Neuro Evolution Arcade is a browser playground for training small neural
 networks to play arcade-style games through neuroevolution.
 
-The current games are Flappy Bird and Lunar Lander Lite. The long-term
-direction is to add more games that reuse the same learning loop: observe game
-state, decide an action, score fitness, select the strongest agents, cross over
-their networks, mutate weights, and run a new generation.
+The current games are Flappy Bird, Lunar Lander Lite, and Hill Climb. The
+long-term direction is to add more games that reuse the same learning loop:
+observe game state, decide an action, score fitness, select the strongest
+agents, cross over their networks, mutate weights, and run a new generation.
 
 ## Current Games
 
 The app currently runs entirely in the browser and includes:
 
-- Canvas-based Flappy Bird and Lunar Lander Lite simulations
+- Canvas-based Flappy Bird, Lunar Lander Lite, and Hill Climb simulations
 - A game picker that separates game-specific controls and explanations
 - Populations of neural-network-controlled agents
 - Fitness scoring, elite preservation, crossover, and mutation
@@ -21,8 +21,12 @@ The app currently runs entirely in the browser and includes:
 - Flappy Bird with six inputs, including the following pipe gap
 - Sequential Lunar Lander Lite with eight inputs for position, velocity, angle,
   fuel, pad distance, and spin, plus thrust/left/right outputs
+- Sequential Hill Climb with fourteen inputs for vehicle motion, angle, fuel,
+  wheel contact, terrain slope, upcoming fuel, and coins, plus gas/tilt outputs
+- Hill Climb coins, fuel cans, flips, and a fixed original countryside terrain
+  with increasing difficulty
 - Human play mode with the space bar for Flappy Bird and space plus arrows/A/D
-  for Lunar Lander
+  for Lunar Lander. Hill Climb uses up/W for gas and left/right or A/D for tilt
 - Local champion save/load via browser storage
 - Flappy Bird difficulty presets for gap, spacing, speed, and mutation
 - Lunar-specific sliders for gravity in Earth-g units, initial fuel, platform
@@ -57,6 +61,14 @@ and stability rewards are not difficulty-weighted, and wall-hugging away from
 the target is penalized. Failed attempts are scored mostly at the terminal
 state from horizontal progress, closest pad distance, active control, and crash
 quality, so passive vertical falling is not a good local optimum.
+
+`Hill Climb` trains two-wheel vehicle agents on an original fixed countryside
+course. The network observes velocity, angle, spin, fuel, wheel contact, terrain
+slope, upcoming terrain, the next fuel can, and the next useful coin. The
+outputs are gas, tilt left, and tilt right. Fuel decreases with time only, so
+long-distance progress depends on keeping enough pace to reach fuel cans. The
+fitness score is dominated by maximum distance, with smaller bonuses for coins,
+survived flips, and remaining fuel.
 
 ## Next Game Ideas
 
@@ -116,6 +128,7 @@ environment.
 - `Fuel initial`: change Lunar Lander starting fuel and restart Lunar training
 - `Taille plateforme`: change the Lunar landing platform width
 - `Puissance moteur`: change Lunar Lander thrust strength
+- `Hill Climb`: use up/W for gas and left/right or A/D for tilt
 - `Save` / `Load` / `Clear`: manage the best saved champion in local browser
   storage
 - `Preset difficulte`: apply easy, normal, hard, or chaos training settings
@@ -123,4 +136,5 @@ environment.
 ## Notes
 
 This project intentionally uses simple geometric canvas art instead of
-copyrighted game assets.
+copyrighted game assets. Hill Climb uses original terrain, physics tuning, and
+shapes rather than copied game assets or level data.

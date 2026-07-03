@@ -21,6 +21,7 @@ const ui = {
   modeHuman: document.querySelector("#modeHuman"),
   gamePipe: document.querySelector("#gamePipe"),
   gameLunar: document.querySelector("#gameLunar"),
+  gameHill: document.querySelector("#gameHill"),
   activeGameTitle: document.querySelector("#activeGameTitle"),
   gameObjective: document.querySelector("#gameObjective"),
   gameHint: document.querySelector("#gameHint"),
@@ -50,6 +51,7 @@ const ui = {
   championStatus: document.querySelector("#championStatus"),
   explanationPipe: document.querySelector("#explanationPipe"),
   explanationLunar: document.querySelector("#explanationLunar"),
+  explanationHill: document.querySelector("#explanationHill"),
 };
 
 const WIDTH = 960;
@@ -65,6 +67,7 @@ const PIPE_CHAMPION_STORAGE_KEY = "neuro-evolution-arcade.pipe-runner.champion";
 const PIPE_PREVIOUS_CHAMPION_STORAGE_KEY = "neuro-evolution-arcade.flappy.champion";
 const PIPE_LEGACY_CHAMPION_STORAGE_KEY = "ai-flappy-evolution.champion";
 const LUNAR_CHAMPION_STORAGE_KEY = "neuro-evolution-arcade.lunar.champion";
+const HILL_CHAMPION_STORAGE_KEY = "neuro-evolution-arcade.hill-climb.champion";
 const PRESETS = {
   easy: { speed: 2, mutation: 0.08, pipeGap: 190, pipeSpacing: 305 },
   normal: { speed: 3, mutation: 0.1, pipeGap: 150, pipeSpacing: 245 },
@@ -74,10 +77,27 @@ const PRESETS = {
 
 const PIPE_INPUT_LABELS = ["height", "velocity", "pipe x", "gap top", "gap bottom", "next gap"];
 const LUNAR_INPUT_LABELS = ["x", "altitude", "vx", "vy", "angle", "fuel", "pad dx", "spin"];
+const HILL_INPUT_LABELS = [
+  "vx",
+  "vy",
+  "angle",
+  "spin",
+  "fuel",
+  "front grip",
+  "rear grip",
+  "slope",
+  "slope ahead",
+  "terrain",
+  "fuel x",
+  "fuel y",
+  "coin x",
+  "coin y",
+];
 
 const games = {
   pipe: createPipeGame(),
   lunar: createLunarGame(),
+  hill: createHillClimbGame(),
 };
 
 let activeGameKey = "pipe";
@@ -519,6 +539,7 @@ function setGame(nextGameKey) {
 function updateGameUi() {
   ui.gamePipe.classList.toggle("is-active", activeGameKey === "pipe");
   ui.gameLunar.classList.toggle("is-active", activeGameKey === "lunar");
+  ui.gameHill.classList.toggle("is-active", activeGameKey === "hill");
   ui.activeGameTitle.textContent = game.title;
   ui.gameObjective.textContent = game.objective;
   ui.gameHint.textContent = game.hint;
@@ -534,6 +555,7 @@ function updateGameUi() {
   setSettingsPanel(ui.presetPanel, pipeActive);
   ui.explanationPipe.classList.toggle("is-hidden", activeGameKey !== "pipe");
   ui.explanationLunar.classList.toggle("is-hidden", activeGameKey !== "lunar");
+  ui.explanationHill.classList.toggle("is-hidden", activeGameKey !== "hill");
   ui.preset.disabled = !pipeActive;
   updateLunarSettingOutputs();
 }
@@ -1461,6 +1483,591 @@ function createLunarGame() {
   };
 }
 
+function createHillClimbGame() {
+  const TERRAIN = [
+    { x: 0, y: 430 },
+    { x: 260, y: 420 },
+    { x: 540, y: 395 },
+    { x: 820, y: 440 },
+    { x: 1120, y: 370 },
+    { x: 1480, y: 445 },
+    { x: 1840, y: 330 },
+    { x: 2220, y: 430 },
+    { x: 2600, y: 300 },
+    { x: 3000, y: 455 },
+    { x: 3380, y: 360 },
+    { x: 3800, y: 410 },
+    { x: 4200, y: 285 },
+    { x: 4650, y: 460 },
+    { x: 5100, y: 315 },
+    { x: 5600, y: 430 },
+    { x: 6100, y: 250 },
+    { x: 6600, y: 455 },
+    { x: 7200, y: 300 },
+    { x: 7900, y: 420 },
+  ];
+  const CHASSIS_WIDTH = 64;
+  const CHASSIS_HEIGHT = 28;
+  const WHEEL_RADIUS = 14;
+  const WHEEL_BASE = 56;
+  const HILL_GRAVITY = 0.34;
+  const HILL_SUBSTEPS = 3;
+  const MAX_FUEL = 1200;
+  const START_X = 120;
+  const START_Y_OFFSET = 76;
+  const LEVEL_END = TERRAIN[TERRAIN.length - 1].x;
+  const COIN_X = [390, 660, 980, 1290, 1710, 2060, 2460, 2840, 3220, 3660, 4040, 4460, 4940, 5420, 5960, 6460, 7040, 7600];
+  const FUEL_X = [1050, 2180, 3420, 4920, 6420, 7420];
+
+  function smoothstep(value) {
+    return value * value * (3 - 2 * value);
+  }
+
+  function terrainSegment(x) {
+    for (let i = 0; i < TERRAIN.length - 1; i += 1) {
+      if (x >= TERRAIN[i].x && x <= TERRAIN[i + 1].x) return [TERRAIN[i], TERRAIN[i + 1]];
+    }
+    return x < TERRAIN[0].x ? [TERRAIN[0], TERRAIN[1]] : [TERRAIN[TERRAIN.length - 2], TERRAIN[TERRAIN.length - 1]];
+  }
+
+  function terrainAt(x) {
+    const [left, right] = terrainSegment(x);
+    const span = Math.max(1, right.x - left.x);
+    const raw = clamp((x - left.x) / span, 0, 1);
+    const curve = smoothstep(raw);
+    const y = left.y + (right.y - left.y) * curve;
+    const slope = ((right.y - left.y) / span) * (6 * raw * (1 - raw));
+    return { y, slope };
+  }
+
+  function createCoins() {
+    return COIN_X.map((x, index) => {
+      const ground = terrainAt(x);
+      const lift = index % 3 === 0 ? 96 : index % 3 === 1 ? 66 : 82;
+      return { id: index, x, y: ground.y - lift };
+    });
+  }
+
+  function createFuelCans() {
+    return FUEL_X.map((x, index) => {
+      const ground = terrainAt(x);
+      return { id: index, x, y: ground.y - 36 };
+    });
+  }
+
+  function localPoint(agent, localX, localY) {
+    const cos = Math.cos(agent.angle);
+    const sin = Math.sin(agent.angle);
+    return {
+      x: agent.x + cos * localX - sin * localY,
+      y: agent.y + sin * localX + cos * localY,
+      relX: cos * localX - sin * localY,
+      relY: sin * localX + cos * localY,
+    };
+  }
+
+  function wheelPoint(agent, side) {
+    return localPoint(agent, side * WHEEL_BASE * 0.5, CHASSIS_HEIGHT * 0.36);
+  }
+
+  function normalizeAngle(angle) {
+    let next = angle;
+    while (next > Math.PI) next -= Math.PI * 2;
+    while (next < -Math.PI) next += Math.PI * 2;
+    return next;
+  }
+
+  function resetHillAgent(agent) {
+    const start = terrainAt(START_X);
+    agent.x = START_X;
+    agent.y = start.y - START_Y_OFFSET;
+    agent.vx = 0;
+    agent.vy = 0;
+    agent.angle = -Math.atan(start.slope) * 0.35;
+    agent.angularVelocity = 0;
+    agent.alive = true;
+    agent.fitness = 0;
+    agent.score = 0;
+    agent.age = 0;
+    agent.fuel = MAX_FUEL;
+    agent.maxDistance = 0;
+    agent.coins = 0;
+    agent.flips = 0;
+    agent.lastRotation = agent.angle;
+    agent.rotationCarry = 0;
+    agent.collectedCoins = new Set();
+    agent.collectedFuel = new Set();
+    agent.frontContact = false;
+    agent.rearContact = false;
+    agent.upsideDownFrames = 0;
+    agent.stalledFrames = 0;
+    agent.crashed = false;
+    agent.controls = { gas: false, left: false, right: false };
+    agent.controlFrames = { gas: 0, left: 0, right: 0 };
+  }
+
+  function nextItem(agent, items, collected) {
+    return items.find((item) => item.x > agent.x - 30 && !collected.has(item.id)) || items[items.length - 1];
+  }
+
+  function inputsFor(agent, targetWorld) {
+    const ground = terrainAt(agent.x);
+    const ahead = terrainAt(agent.x + 180);
+    const fuel = nextItem(agent, targetWorld.fuels, agent.collectedFuel);
+    const coin = nextItem(agent, targetWorld.coins, agent.collectedCoins);
+    return [
+      clamp(agent.vx / 9, -1, 1),
+      clamp(agent.vy / 9, -1, 1),
+      normalizeAngle(agent.angle) / Math.PI,
+      clamp(agent.angularVelocity / 0.22, -1, 1),
+      agent.fuel / MAX_FUEL,
+      agent.frontContact ? 1 : 0,
+      agent.rearContact ? 1 : 0,
+      clamp(ground.slope, -1, 1),
+      clamp(ahead.slope, -1, 1),
+      clamp((ahead.y - ground.y) / 180, -1, 1),
+      clamp((fuel.x - agent.x) / 900, -1, 1),
+      clamp((fuel.y - agent.y) / 260, -1, 1),
+      clamp((coin.x - agent.x) / 900, -1, 1),
+      clamp((coin.y - agent.y) / 260, -1, 1),
+    ];
+  }
+
+  function chooseAction(agent, targetWorld) {
+    const [gasOutput, leftOutput, rightOutput] = feedForward(agent.genome, inputsFor(agent, targetWorld));
+    const tiltDifference = leftOutput - rightOutput;
+    return {
+      gas: gasOutput > 0.52,
+      left: tiltDifference > 0.08 && leftOutput > 0.5,
+      right: tiltDifference < -0.08 && rightOutput > 0.5,
+    };
+  }
+
+  function pointVelocity(agent, point) {
+    return {
+      x: agent.vx - agent.angularVelocity * point.relY,
+      y: agent.vy + agent.angularVelocity * point.relX,
+    };
+  }
+
+  function applyForce(agent, point, forceX, forceY, scale = 1) {
+    agent.vx += forceX * scale;
+    agent.vy += forceY * scale;
+    agent.angularVelocity += (point.relX * forceY - point.relY * forceX) * 0.0009 * scale;
+  }
+
+  function applyWheel(agent, side, action) {
+    const wheel = wheelPoint(agent, side);
+    const ground = terrainAt(wheel.x);
+    const penetration = wheel.y + WHEEL_RADIUS - ground.y;
+    if (penetration <= 0) return false;
+
+    const normalLength = Math.hypot(ground.slope, 1) || 1;
+    const normal = { x: -ground.slope / normalLength, y: -1 / normalLength };
+    const tangent = { x: 1 / normalLength, y: ground.slope / normalLength };
+    const velocity = pointVelocity(agent, wheel);
+    const normalVelocity = velocity.x * normal.x + velocity.y * normal.y;
+    const tangentVelocity = velocity.x * tangent.x + velocity.y * tangent.y;
+    const suspension = Math.max(0, penetration * 0.12 - normalVelocity * 0.08);
+
+    applyForce(agent, wheel, normal.x * suspension, normal.y * suspension);
+
+    const grip = clamp(-tangentVelocity * 0.028, -0.08, 0.08);
+    applyForce(agent, wheel, tangent.x * grip, tangent.y * grip);
+
+    if (action.gas && agent.fuel > 0) {
+      const traction = side < 0 ? 0.11 : 0.075;
+      applyForce(agent, wheel, tangent.x * traction, tangent.y * traction);
+    }
+
+    return true;
+  }
+
+  function chassisCorners(agent) {
+    const halfWidth = CHASSIS_WIDTH / 2;
+    const halfHeight = CHASSIS_HEIGHT / 2;
+    return [
+      localPoint(agent, -halfWidth, -halfHeight),
+      localPoint(agent, halfWidth, -halfHeight),
+      localPoint(agent, -halfWidth, halfHeight),
+      localPoint(agent, halfWidth, halfHeight),
+    ];
+  }
+
+  function settleChassis(agent) {
+    let deepest = 0;
+    for (const corner of chassisCorners(agent)) {
+      const ground = terrainAt(corner.x);
+      deepest = Math.max(deepest, corner.y - ground.y);
+    }
+
+    if (deepest <= 0) return;
+    if (deepest > 8 || Math.abs(agent.vy) > 4.4 || Math.abs(agent.angularVelocity) > 0.2) {
+      agent.alive = false;
+      agent.crashed = true;
+      agent.fitness -= 450;
+      return;
+    }
+
+    agent.y -= deepest + 1;
+    agent.vy = Math.min(agent.vy, 0);
+  }
+
+  function collectItems(agent, targetWorld) {
+    for (const coin of targetWorld.coins) {
+      if (agent.collectedCoins.has(coin.id)) continue;
+      if (Math.hypot(agent.x - coin.x, agent.y - coin.y) < 42) {
+        agent.collectedCoins.add(coin.id);
+        agent.coins += 1;
+        agent.fitness += 180;
+      }
+    }
+
+    for (const fuel of targetWorld.fuels) {
+      if (agent.collectedFuel.has(fuel.id)) continue;
+      if (Math.hypot(agent.x - fuel.x, agent.y - fuel.y) < 48) {
+        agent.collectedFuel.add(fuel.id);
+        agent.fuel = Math.min(MAX_FUEL, agent.fuel + 520);
+        agent.fitness += 80;
+      }
+    }
+  }
+
+  function updateFlips(agent) {
+    const delta = normalizeAngle(agent.angle - agent.lastRotation);
+    agent.rotationCarry += delta;
+    agent.lastRotation = agent.angle;
+
+    const landed = agent.frontContact || agent.rearContact;
+    if (landed && Math.abs(agent.rotationCarry) >= Math.PI * 2) {
+      const count = Math.floor(Math.abs(agent.rotationCarry) / (Math.PI * 2));
+      agent.flips += count;
+      agent.fitness += count * 650;
+      agent.rotationCarry = 0;
+    }
+  }
+
+  function updateHill(agent, targetWorld, action) {
+    if (!agent.alive) return;
+
+    agent.age += 1;
+    agent.fuel = Math.max(0, agent.fuel - 1);
+    const effectiveAction = agent.fuel > 0 ? action : { gas: false, left: action.left, right: action.right };
+    agent.frontContact = false;
+    agent.rearContact = false;
+
+    for (let i = 0; i < HILL_SUBSTEPS; i += 1) {
+      agent.vy += HILL_GRAVITY / HILL_SUBSTEPS;
+      const rearContact = applyWheel(agent, -1, effectiveAction);
+      const frontContact = applyWheel(agent, 1, effectiveAction);
+      agent.rearContact = agent.rearContact || rearContact;
+      agent.frontContact = agent.frontContact || frontContact;
+
+      const grounded = rearContact || frontContact;
+      const tilt = effectiveAction.left ? -1 : effectiveAction.right ? 1 : 0;
+      agent.angularVelocity += tilt * (grounded ? 0.004 : 0.015);
+
+      agent.x += agent.vx / HILL_SUBSTEPS;
+      agent.y += agent.vy / HILL_SUBSTEPS;
+      agent.angle += agent.angularVelocity / HILL_SUBSTEPS;
+      agent.vx *= grounded ? 0.998 : 0.999;
+      agent.vy *= 0.999;
+      agent.angularVelocity *= grounded ? 0.992 : 0.996;
+    }
+
+    settleChassis(agent);
+    updateFlips(agent);
+    collectItems(agent, targetWorld);
+
+    agent.maxDistance = Math.max(agent.maxDistance, agent.x - START_X);
+    agent.score = Math.max(0, Math.floor(agent.maxDistance / 10));
+    agent.fitness = Math.max(
+      agent.fitness,
+      agent.maxDistance * 5 + agent.coins * 180 + agent.flips * 650 + agent.fuel / 20,
+    );
+
+    const upright = Math.cos(agent.angle) > -0.25;
+    agent.upsideDownFrames = upright ? 0 : agent.upsideDownFrames + 1;
+    agent.stalledFrames = agent.fuel <= 0 && Math.abs(agent.vx) < 0.05 ? agent.stalledFrames + 1 : 0;
+
+    if (agent.upsideDownFrames > 130 || agent.stalledFrames > 120 || agent.x < START_X - 80 || agent.y > HEIGHT + 260) {
+      agent.alive = false;
+      agent.crashed = agent.upsideDownFrames > 130 || agent.y > HEIGHT + 260;
+      agent.fitness -= agent.crashed ? 280 : 80;
+    }
+
+    if (agent.x >= LEVEL_END) {
+      agent.alive = false;
+      agent.fitness += 2000 + agent.fuel;
+    }
+  }
+
+  function setTimedControl(agent, name) {
+    if (!agent) return;
+    agent.controls[name] = true;
+    agent.controlFrames[name] = 8;
+  }
+
+  function controlsForHuman(agent) {
+    const controls = { ...agent.controls };
+    for (const key of Object.keys(agent.controlFrames)) {
+      agent.controlFrames[key] = Math.max(0, agent.controlFrames[key] - 1);
+      if (agent.controlFrames[key] === 0) agent.controls[key] = false;
+    }
+    return controls;
+  }
+
+  function drawHillBackground(targetCtx) {
+    const gradient = targetCtx.createLinearGradient(0, 0, 0, HEIGHT);
+    gradient.addColorStop(0, "#91d9ef");
+    gradient.addColorStop(0.7, "#d7efd5");
+    gradient.addColorStop(1, "#f3dfae");
+    targetCtx.fillStyle = gradient;
+    targetCtx.fillRect(0, 0, WIDTH, HEIGHT);
+
+    targetCtx.fillStyle = "rgba(255,255,255,0.75)";
+    for (const cloud of [
+      [130, 82, 42],
+      [510, 112, 52],
+      [800, 70, 36],
+    ]) {
+      targetCtx.beginPath();
+      targetCtx.arc(cloud[0], cloud[1], cloud[2], 0, Math.PI * 2);
+      targetCtx.arc(cloud[0] + 44, cloud[1] + 10, cloud[2] * 0.7, 0, Math.PI * 2);
+      targetCtx.arc(cloud[0] - 38, cloud[1] + 12, cloud[2] * 0.62, 0, Math.PI * 2);
+      targetCtx.fill();
+    }
+
+    targetCtx.fillStyle = "rgba(68, 137, 89, 0.22)";
+    targetCtx.beginPath();
+    targetCtx.moveTo(0, HEIGHT - 138);
+    targetCtx.lineTo(180, HEIGHT - 185);
+    targetCtx.lineTo(360, HEIGHT - 150);
+    targetCtx.lineTo(570, HEIGHT - 205);
+    targetCtx.lineTo(780, HEIGHT - 155);
+    targetCtx.lineTo(WIDTH, HEIGHT - 190);
+    targetCtx.lineTo(WIDTH, HEIGHT);
+    targetCtx.lineTo(0, HEIGHT);
+    targetCtx.closePath();
+    targetCtx.fill();
+  }
+
+  function drawTerrain(targetCtx, cameraX) {
+    targetCtx.fillStyle = "#8f6b3f";
+    targetCtx.strokeStyle = "#376b3d";
+    targetCtx.lineWidth = 5;
+    targetCtx.beginPath();
+    targetCtx.moveTo(0, HEIGHT);
+    for (let screenX = -24; screenX <= WIDTH + 24; screenX += 24) {
+      const worldX = cameraX + screenX;
+      const ground = terrainAt(worldX);
+      targetCtx.lineTo(screenX, ground.y);
+    }
+    targetCtx.lineTo(WIDTH + 24, HEIGHT);
+    targetCtx.closePath();
+    targetCtx.fill();
+
+    targetCtx.beginPath();
+    for (let screenX = -24; screenX <= WIDTH + 24; screenX += 24) {
+      const worldX = cameraX + screenX;
+      const ground = terrainAt(worldX);
+      if (screenX === -24) targetCtx.moveTo(screenX, ground.y);
+      else targetCtx.lineTo(screenX, ground.y);
+    }
+    targetCtx.stroke();
+  }
+
+  function drawCollectibles(targetCtx, targetWorld, agent, cameraX) {
+    for (const coin of targetWorld.coins) {
+      if (agent?.collectedCoins.has(coin.id)) continue;
+      const x = coin.x - cameraX;
+      if (x < -40 || x > WIDTH + 40) continue;
+      targetCtx.fillStyle = "#f2c14e";
+      targetCtx.strokeStyle = "#9e7224";
+      targetCtx.lineWidth = 3;
+      targetCtx.beginPath();
+      targetCtx.arc(x, coin.y, 12, 0, Math.PI * 2);
+      targetCtx.fill();
+      targetCtx.stroke();
+      targetCtx.fillStyle = "rgba(255,255,255,0.65)";
+      targetCtx.fillRect(x - 3, coin.y - 7, 4, 14);
+    }
+
+    for (const fuel of targetWorld.fuels) {
+      if (agent?.collectedFuel.has(fuel.id)) continue;
+      const x = fuel.x - cameraX;
+      if (x < -44 || x > WIDTH + 44) continue;
+      targetCtx.fillStyle = "#e86f51";
+      targetCtx.strokeStyle = "#8d3e2c";
+      targetCtx.lineWidth = 3;
+      targetCtx.fillRect(x - 13, fuel.y - 18, 26, 34);
+      targetCtx.strokeRect(x - 13, fuel.y - 18, 26, 34);
+      targetCtx.fillStyle = "#fff4d8";
+      targetCtx.fillRect(x - 6, fuel.y - 9, 12, 12);
+    }
+  }
+
+  function drawVehicle(targetCtx, agent, cameraX) {
+    const screenX = agent.x - cameraX;
+    const rear = wheelPoint(agent, -1);
+    const front = wheelPoint(agent, 1);
+
+    targetCtx.strokeStyle = "rgba(23,32,38,0.55)";
+    targetCtx.lineWidth = 4;
+    targetCtx.beginPath();
+    targetCtx.moveTo(rear.x - cameraX, rear.y);
+    targetCtx.lineTo(screenX - 26, agent.y + 5);
+    targetCtx.moveTo(front.x - cameraX, front.y);
+    targetCtx.lineTo(screenX + 26, agent.y + 5);
+    targetCtx.stroke();
+
+    for (const wheel of [rear, front]) {
+      targetCtx.fillStyle = "#172026";
+      targetCtx.beginPath();
+      targetCtx.arc(wheel.x - cameraX, wheel.y, WHEEL_RADIUS, 0, Math.PI * 2);
+      targetCtx.fill();
+      targetCtx.fillStyle = "#c9d5d1";
+      targetCtx.beginPath();
+      targetCtx.arc(wheel.x - cameraX, wheel.y, WHEEL_RADIUS * 0.45, 0, Math.PI * 2);
+      targetCtx.fill();
+    }
+
+    targetCtx.save();
+    targetCtx.translate(screenX, agent.y);
+    targetCtx.rotate(agent.angle);
+    targetCtx.fillStyle = "#247ba0";
+    targetCtx.strokeStyle = "#172026";
+    targetCtx.lineWidth = 3;
+    targetCtx.fillRect(-CHASSIS_WIDTH / 2, -CHASSIS_HEIGHT / 2, CHASSIS_WIDTH, CHASSIS_HEIGHT);
+    targetCtx.strokeRect(-CHASSIS_WIDTH / 2, -CHASSIS_HEIGHT / 2, CHASSIS_WIDTH, CHASSIS_HEIGHT);
+    targetCtx.fillStyle = "#f2c14e";
+    targetCtx.fillRect(4, -CHASSIS_HEIGHT / 2 - 16, 24, 16);
+    targetCtx.strokeRect(4, -CHASSIS_HEIGHT / 2 - 16, 24, 16);
+    targetCtx.restore();
+  }
+
+  function drawFuelGauge(targetCtx, agent) {
+    const width = 180;
+    const ratio = agent ? agent.fuel / MAX_FUEL : 0;
+    targetCtx.fillStyle = "rgba(255,255,255,0.85)";
+    targetCtx.fillRect(WIDTH - width - 18, 18, width, 54);
+    targetCtx.fillStyle = "#172026";
+    targetCtx.font = "700 14px system-ui";
+    targetCtx.fillText("Fuel", WIDTH - width, 39);
+    targetCtx.fillStyle = "#d8e1df";
+    targetCtx.fillRect(WIDTH - width, 48, width - 34, 12);
+    targetCtx.fillStyle = ratio > 0.22 ? "#2f9a62" : "#e86f51";
+    targetCtx.fillRect(WIDTH - width, 48, (width - 34) * ratio, 12);
+    targetCtx.fillStyle = "#172026";
+    targetCtx.fillText(`${agent?.coins || 0} coins`, WIDTH - 74, 39);
+  }
+
+  return {
+    key: "hill",
+    title: "Hill Climb",
+    objective: "Les agents apprennent a rouler le plus loin possible en gerant l'equilibre, les sauts et le carburant.",
+    hint: "IA: un specimen fait une course complete. Humain: haut/W pour gaz, gauche/A et droite/D pour incliner.",
+    sequential: true,
+    defaultPopulation: 10,
+    defaultMutation: 0.1,
+    defaultSpeed: 8,
+    maxSpeed: 32,
+    speedLabel: "Run speed",
+    populationLabel: "Specimens",
+    leaderFitnessLabel: "Current specimen",
+    inputs: 14,
+    hidden: DEFAULT_HIDDEN,
+    outputs: 3,
+    inputLabels: HILL_INPUT_LABELS,
+    outputLabels: ["gas", "tilt L", "tilt R"],
+    outputLabel: "Drive",
+    distanceLabel: "Distance",
+    championStorageKey: HILL_CHAMPION_STORAGE_KEY,
+    championStorageKeys: [HILL_CHAMPION_STORAGE_KEY],
+    defaultChampionStatus: "No Hill Climb champion saved yet.",
+    humanNetworkMessage: "Switch to AI training to view the Hill Climb network.",
+    createWorld() {
+      return {
+        activeAgentIndex: 0,
+        cameraX: 0,
+        coins: createCoins(),
+        fuels: createFuelCans(),
+      };
+    },
+    makeAgent(id, genome) {
+      const agent = {
+        id,
+        genome,
+        alive: false,
+        fitness: 0,
+        score: 0,
+      };
+      resetHillAgent(agent);
+      agent.alive = false;
+      return agent;
+    },
+    makeHumanAgent(id) {
+      return this.makeAgent(id, createGenome(this));
+    },
+    resetAgents(nextAgents, targetWorld) {
+      targetWorld.activeAgentIndex = 0;
+      targetWorld.cameraX = 0;
+      for (const agent of nextAgents) {
+        resetHillAgent(agent);
+        agent.alive = false;
+      }
+    },
+    startAgent(agent) {
+      resetHillAgent(agent);
+    },
+    resetHuman(agent) {
+      resetHillAgent(agent);
+    },
+    stepWorld() {},
+    updateAgent(agent, targetWorld) {
+      updateHill(agent, targetWorld, chooseAction(agent, targetWorld));
+    },
+    updateHuman(agent, targetWorld) {
+      if (!agent) return;
+      updateHill(agent, targetWorld, controlsForHuman(agent));
+    },
+    humanPrimaryAction(agent) {
+      setTimedControl(agent, "gas");
+    },
+    handleHumanKey(event, agent) {
+      if (!agent) return false;
+      const actions = {
+        ArrowUp: "gas",
+        KeyW: "gas",
+        ArrowLeft: "left",
+        KeyA: "left",
+        ArrowRight: "right",
+        KeyD: "right",
+      };
+      const action = actions[event.code];
+      if (!action) return false;
+      if (!agent.alive) resetHillAgent(agent);
+      setTimedControl(agent, action);
+      return true;
+    },
+    distanceMetric(agent) {
+      return agent ? Math.max(0, Math.round(agent.maxDistance)) : 0;
+    },
+    draw(targetCtx, targetWorld, visibleAgents, mode, currentScore) {
+      const agent = visibleAgents[0];
+      if (agent) targetWorld.cameraX = clamp(agent.x - 260, 0, Math.max(0, LEVEL_END - WIDTH + 80));
+      drawHillBackground(targetCtx);
+      drawTerrain(targetCtx, targetWorld.cameraX);
+      drawCollectibles(targetCtx, targetWorld, agent, targetWorld.cameraX);
+      if (agent) drawVehicle(targetCtx, agent, targetWorld.cameraX);
+      drawScoreBadge(targetCtx, currentScore);
+      drawFuelGauge(targetCtx, agent);
+      drawCrashOverlay(targetCtx, mode, agent, "Press an arrow key or Reset to drive again");
+    },
+  };
+}
+
+
 function drawScoreBadge(targetCtx, currentScore) {
   targetCtx.fillStyle = "rgba(255,255,255,0.82)";
   targetCtx.fillRect(18, 18, 168, 54);
@@ -1497,6 +2104,7 @@ ui.modeAi.addEventListener("click", () => setMode("ai"));
 ui.modeHuman.addEventListener("click", () => setMode("human"));
 ui.gamePipe.addEventListener("click", () => setGame("pipe"));
 ui.gameLunar.addEventListener("click", () => setGame("lunar"));
+ui.gameHill.addEventListener("click", () => setGame("hill"));
 ui.speed.addEventListener("input", () => {
   ui.speedValue.textContent = `${ui.speed.value}x`;
   if (activeGameKey === "pipe") ui.preset.value = "custom";

@@ -10,6 +10,7 @@ const root = new URL("../", import.meta.url);
 const pipeChampionStorageKey = "neuro-evolution-arcade.pipe-runner.champion";
 const legacyChampionStorageKey = "ai-flappy-evolution.champion";
 const lunarChampionStorageKey = "neuro-evolution-arcade.lunar.champion";
+const hillChampionStorageKey = "neuro-evolution-arcade.hill-climb.champion";
 const execFileAsync = promisify(execFile);
 
 class ClassList {
@@ -268,6 +269,7 @@ test("static app includes every primary control and asset reference", async () =
     "modeHuman",
     "gamePipe",
     "gameLunar",
+    "gameHill",
     "activeGameTitle",
     "gameObjective",
     "gameHint",
@@ -290,6 +292,7 @@ test("static app includes every primary control and asset reference", async () =
     "lunarThrustValue",
     "presetPanel",
     "preset",
+    "explanationHill",
     "leaderFitnessLabel",
     "saveChampion",
     "loadChampion",
@@ -300,10 +303,12 @@ test("static app includes every primary control and asset reference", async () =
 
   assert.match(html, /Comment les generations apprennent/);
   assert.match(html, /Comment Lunar Lander apprend/);
+  assert.match(html, /Comment Hill Climb apprend/);
   assert.match(html, /Neuro Evolution Arcade/);
   assert.match(html, /rel="icon" type="image\/svg\+xml" href="\.\/assets\/favicon\.svg"/);
   assert.match(html, /Flappy Bird/);
   assert.match(html, /Lunar Lander/);
+  assert.match(html, /Hill Climb/);
   assert.match(favicon, /<svg/);
   assert.match(favicon, /Neuro Evolution Arcade/);
   assert.match(favicon, /#1a56db/);
@@ -315,11 +320,15 @@ test("static app includes every primary control and asset reference", async () =
   assert.doesNotMatch(script, /createPongGame|gamePong|PONG_INPUT_LABELS|pongSettings/);
   assert.match(script, /inputs: 6/);
   assert.match(script, /inputs: 8/);
+  assert.match(script, /inputs: 14/);
   assert.match(script, /LUNAR_INPUT_LABELS/);
+  assert.match(script, /HILL_INPUT_LABELS/);
   assert.doesNotMatch(script, /"target vx"/);
   assert.doesNotMatch(script, /"pad align"/);
   assert.match(script, /createLunarGame/);
+  assert.match(script, /createHillClimbGame/);
   assert.match(script, /outputLabels: \["thrust", "left", "right"\]/);
+  assert.match(script, /outputLabels: \["gas", "tilt L", "tilt R"\]/);
   assert.match(script, /window\.addEventListener\("keyup", handleKeyup\)/);
   assert.match(script, /handleHumanKeyUp\(event, agent\)/);
   assert.match(script, /sequential: true/);
@@ -444,6 +453,54 @@ test("game picker switches to Lunar Lander with dedicated sliders and network sh
   assert.equal(labels.includes("right"), true);
 });
 
+test("game picker switches to Hill Climb with sequential run controls and network shape", async () => {
+  const harness = await loadHarness();
+
+  element(harness, "gameHill").click();
+  harness.runFrame();
+
+  assert.equal(element(harness, "activeGameTitle").textContent, "Hill Climb");
+  assert.equal(element(harness, "gameHill").classList.contains("is-active"), true);
+  assert.equal(element(harness, "pipeSettings").hidden, true);
+  assert.equal(element(harness, "pipeSettings").classList.contains("is-hidden"), true);
+  assert.equal(element(harness, "pipeSettings").classList.contains("settings-visible"), false);
+  assert.equal(element(harness, "lunarSettings").hidden, true);
+  assert.equal(element(harness, "lunarSettings").classList.contains("is-hidden"), true);
+  assert.equal(element(harness, "lunarSettings").classList.contains("settings-visible"), false);
+  assert.equal(element(harness, "presetPanel").hidden, true);
+  assert.equal(element(harness, "aliveLabel").textContent, "Specimen");
+  assert.equal(element(harness, "alive").textContent, "1/10");
+  assert.equal(element(harness, "speedLabel").textContent, "Run speed");
+  assert.equal(element(harness, "population").value, 10);
+  assert.equal(element(harness, "mutation").value, "0.10");
+  assert.equal(element(harness, "distanceLabel").textContent, "Distance");
+  assert.equal(element(harness, "leaderFitnessLabel").textContent, "Current specimen");
+  assert.equal(element(harness, "speed").value, 8);
+  assert.equal(element(harness, "speed").max, 32);
+
+  const networkCalls = element(harness, "network").getContext().calls;
+  const labels = networkCalls.filter((call) => call.type === "fillText").map((call) => call.text);
+  assert.deepEqual(labels.slice(0, 14), [
+    "vx",
+    "vy",
+    "angle",
+    "spin",
+    "fuel",
+    "front grip",
+    "rear grip",
+    "slope",
+    "slope ahead",
+    "terrain",
+    "fuel x",
+    "fuel y",
+    "coin x",
+    "coin y",
+  ]);
+  assert.equal(labels.includes("gas"), true);
+  assert.equal(labels.includes("tilt L"), true);
+  assert.equal(labels.includes("tilt R"), true);
+});
+
 test("training controls evolve generations and difficulty presets update numeric settings", async () => {
   const harness = await loadHarness();
   harness.runFrame();
@@ -523,6 +580,38 @@ test("Lunar human mode uses thrust and rotation controls", async () => {
   assert.equal(element(harness, "activeGameTitle").textContent, "Lunar Lander Lite");
 });
 
+test("Hill Climb human mode uses gas and tilt keys", async () => {
+  const harness = await loadHarness();
+
+  element(harness, "gameHill").click();
+  element(harness, "modeHuman").click();
+  harness.runFrame();
+
+  assert.equal(element(harness, "generation").textContent, "Human");
+  assert.equal(element(harness, "alive").textContent, 1);
+  assert.equal(element(harness, "nextGen").disabled, true);
+
+  let prevented = false;
+  harness.window.dispatchEvent({
+    type: "keydown",
+    code: "ArrowUp",
+    preventDefault() {
+      prevented = true;
+    },
+  });
+  harness.window.dispatchEvent({
+    type: "keydown",
+    code: "ArrowLeft",
+    preventDefault() {
+      prevented = true;
+    },
+  });
+  harness.runFrame(2);
+
+  assert.equal(prevented, true);
+  assert.equal(element(harness, "activeGameTitle").textContent, "Hill Climb");
+});
+
 test("champion save, load, clear, and incompatible payload handling work", async () => {
   const harness = await loadHarness();
   harness.runFrame();
@@ -564,6 +653,26 @@ test("Lunar champions are saved under the Lunar key with compatible genome lengt
   element(harness, "loadChampion").click();
   harness.runFrame();
   assert.match(element(harness, "championStatus").textContent, /Lunar Lander Lite champion loaded/);
+});
+
+test("Hill Climb champions are saved under the Hill Climb key with compatible genome length", async () => {
+  const harness = await loadHarness();
+
+  element(harness, "gameHill").click();
+  harness.runFrame();
+
+  element(harness, "saveChampion").click();
+  const saved = JSON.parse(harness.storage.getItem(hillChampionStorageKey));
+
+  assert.equal(saved.game, "hill");
+  assert.equal(saved.genome.length, 129);
+  assert.equal(saved.inputs, 14);
+  assert.equal(saved.hidden, 7);
+  assert.equal(saved.outputs, 3);
+
+  element(harness, "loadChampion").click();
+  harness.runFrame();
+  assert.match(element(harness, "championStatus").textContent, /Hill Climb champion loaded/);
 });
 
 test("legacy champion storage key remains loadable after project rename", async () => {
