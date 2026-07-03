@@ -95,16 +95,18 @@ and champion storage keys.
   advances to the next target in the sequence, and the lander restarts from the
   same deterministic centered state. Crashing or timing out ends that
   specimen's turn; the next specimen restarts at target index 0 of the same
-  sequence and the same initial state. The displayed score is the total
-  successful landings accumulated by the current generation. Landers should
-  spawn from the center of the simulation, while pads may appear across the
-  full visible width. Target-oriented fitness rewards are multiplied by pad
-  difficulty, so reaching or landing on edge targets is worth more than doing
-  the same on a central target. Do not multiply generic survival/stability by
-  pad difficulty; otherwise agents learn to drift toward edges. Penalize
-  wrong-way horizontal velocity and wall-hugging away from the target. Keep its
-  physics, fitness shaping, slider tests, score metric tests, and champion
-  compatibility tests in sync.
+  sequence and the same initial state. The displayed score and best score are
+  the best individual specimen score observed in the current generation, never
+  the sum of all specimen scores. Fitness is also optimized per specimen: keep
+  maximizing the strongest individual `agent.fitness`, not a generation-wide
+  sum. Landers should spawn from the center of the simulation, while pads may
+  appear across the full visible width. Target-oriented fitness rewards are
+  multiplied by pad difficulty, so reaching or landing on edge targets is worth
+  more than doing the same on a central target. Do not multiply generic
+  survival/stability by pad difficulty; otherwise agents learn to drift toward
+  edges. Penalize wrong-way horizontal velocity and wall-hugging away from the
+  target. Keep its physics, fitness shaping, slider tests, score metric tests,
+  and champion compatibility tests in sync.
 - Saved Flappy Bird champions are stored in `localStorage` under the historical
   `neuro-evolution-arcade.pipe-runner.champion`.
 - The previous key `neuro-evolution-arcade.flappy.champion` and legacy key

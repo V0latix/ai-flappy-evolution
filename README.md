@@ -45,8 +45,8 @@ target, and restarts the same specimen from a deterministic centered spawn.
 Crashing or timing out ends its turn and starts the next specimen at the first
 target of the same sequence, with the same centered initial state.
 At generation end, selection keeps the strongest fitness, then crossover and
-mutation create the next generation. The visible score is the total successful
-landings accumulated by the generation so far.
+mutation create the next generation. The visible score is the best individual
+specimen score observed in the generation, not the sum of all specimens.
 Lunar gravity is configured as a fraction of Earth gravity: the default `0.17g`
 is close to the Moon's gravity.
 The Lunar fitness also weights target-oriented rewards by pad difficulty:

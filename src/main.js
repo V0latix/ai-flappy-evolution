@@ -1386,7 +1386,7 @@ function createLunarGame() {
       return Math.round(distanceToPad(agent, targetWorld));
     },
     sequentialScore(nextAgents) {
-      return nextAgents.reduce((total, agent) => total + agent.score, 0);
+      return Math.max(0, ...nextAgents.map((agent) => agent.score));
     },
     draw(targetCtx, targetWorld, visibleAgents, mode, currentScore) {
       drawLunarBackground(targetCtx, targetWorld);

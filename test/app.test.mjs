@@ -312,6 +312,8 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /sequential: true/);
   assert.match(script, /startAgent\(agent, targetWorld\)/);
   assert.match(script, /sequentialScore\(nextAgents\)/);
+  assert.match(script, /Math\.max\(0, \.\.\.nextAgents\.map\(\(agent\) => agent\.score\)\)/);
+  assert.doesNotMatch(script, /nextAgents\.reduce\(\(total, agent\) => total \+ agent\.score, 0\)/);
   assert.match(script, /agent\.score \+= 1/);
   assert.match(script, /makeTargetSequence/);
   assert.match(script, /advanceLandingTarget\(agent, targetWorld\)/);
