@@ -3,8 +3,8 @@
 Neuro Evolution Arcade is a browser playground for training small neural
 networks to play arcade-style games through neuroevolution.
 
-The current games are Flappy Bird, Lunar Lander Lite, and Hill Climb. The
-long-term direction is to add more games that reuse the same learning loop:
+The current games are Flappy Bird, Lunar Lander Lite, Hill Climb, and Formula
+Circuit. The long-term direction is to add more games that reuse the same learning loop:
 observe game state, decide an action, score fitness, select the strongest
 agents, cross over their networks, mutate weights, and run a new generation.
 
@@ -12,7 +12,8 @@ agents, cross over their networks, mutate weights, and run a new generation.
 
 The app currently runs entirely in the browser and includes:
 
-- Canvas-based Flappy Bird, Lunar Lander Lite, and Hill Climb simulations
+- Canvas-based Flappy Bird, Lunar Lander Lite, Hill Climb, and Formula Circuit
+  simulations
 - A game picker that separates game-specific controls and explanations
 - Populations of neural-network-controlled agents
 - Fitness scoring, elite preservation, crossover, and mutation
@@ -25,8 +26,14 @@ The app currently runs entirely in the browser and includes:
   wheel contact, terrain slope, upcoming fuel, and coins, plus gas/brake outputs
 - Hill Climb coins, fuel cans, flips, and a fixed original countryside terrain
   with increasing difficulty
+- Formula Circuit with twelve inputs for speed, slide, heading, checkpoint
+  targeting, curve reading, and track sensors, plus gas/brake/left/right outputs
+- Formula Circuit runs the full AI population at once on a fixed top-down
+  circuit inspired by fast Formula 1 layouts, with ghost cars and checkpoint
+  scoring
 - Human play mode with the space bar for Flappy Bird and space plus arrows/A/D
-  for Lunar Lander. Hill Climb uses right/up/W/D for gas and left/down/A/S for brake
+  for Lunar Lander. Hill Climb uses right/up/W/D for gas and left/down/A/S for brake.
+  Formula Circuit uses arrows or WASD for gas, brake, and steering
 - Local champion save/load via browser storage
 - Flappy Bird difficulty presets for gap, spacing, speed, and mutation
 - Lunar-specific sliders for gravity in Earth-g units, initial fuel, platform
@@ -72,13 +79,23 @@ control model more closely than separate tilt buttons. The fitness score is
 dominated by maximum distance, with smaller bonuses for coins, survived flips,
 and remaining fuel.
 
+`Formula Circuit` trains top-down racing agents on one original closed circuit
+inspired by the rhythm of Monza: long straights, heavy braking zones, chicanes,
+fast corners, and a final sweeping turn. Every specimen drives at the same time,
+but cars are ghosts and do not collide with each other. The network observes
+forward speed, side slip, heading error, spin, off-track state, the next
+checkpoint in car-local coordinates, nearby curve direction, and four track
+sensors. Its four outputs are combinable gas, brake, left, and right commands.
+Fitness rewards checkpoints in order, completed laps, useful speed on track, and
+alignment with the racing line, while long off-track runs, reversing, and lack of
+progress end the attempt.
+
 ## Next Game Ideas
 
 Strong candidates for future modules after Lunar:
 
 - `Dino Runner`: close to the Flappy flow, but with jump timing and obstacle
   type recognition.
-- `Car Avoider`: lane changes, obstacle timing, and bonus/risk tradeoffs.
 - `2048`: useful for testing strategy and delayed reward, though better suited
   to tree search or reinforcement learning hybrids.
 - `Tetris Mini`: interesting but harder; requires board evaluation, rotation,
@@ -87,9 +104,7 @@ Strong candidates for future modules after Lunar:
 Recommended order:
 
 1. `Dino Runner`, because it reuses much of the current side-scroller logic.
-2. `Car Avoider`, because it introduces multiple simultaneous choices without
-   becoming too hard to visualize.
-3. `Grid Collector`, because it can show path planning, reward tradeoffs, and
+2. `Grid Collector`, because it can show path planning, reward tradeoffs, and
    local traps clearly.
 
 ## Run Locally
@@ -131,6 +146,8 @@ environment.
 - `Taille plateforme`: change the Lunar landing platform width
 - `Puissance moteur`: change Lunar Lander thrust strength
 - `Hill Climb`: use right/up/W/D for gas and left/down/A/S for brake
+- `Formula Circuit`: use up/W for gas, down/S for brake, and left/A or right/D
+  for steering
 - `Save` / `Load` / `Clear`: manage the best saved champion in local browser
   storage
 - `Preset difficulte`: apply easy, normal, hard, or chaos training settings
@@ -140,3 +157,5 @@ environment.
 This project intentionally uses simple geometric canvas art instead of
 copyrighted game assets. Hill Climb uses original terrain, physics tuning, and
 shapes rather than copied game assets or level data.
+Formula Circuit uses an original circuit layout inspired by fast Formula 1 track
+patterns rather than official track data or branding.

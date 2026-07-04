@@ -22,6 +22,7 @@ const ui = {
   gamePipe: document.querySelector("#gamePipe"),
   gameLunar: document.querySelector("#gameLunar"),
   gameHill: document.querySelector("#gameHill"),
+  gameFormula: document.querySelector("#gameFormula"),
   activeGameTitle: document.querySelector("#activeGameTitle"),
   gameObjective: document.querySelector("#gameObjective"),
   gameHint: document.querySelector("#gameHint"),
@@ -52,6 +53,7 @@ const ui = {
   explanationPipe: document.querySelector("#explanationPipe"),
   explanationLunar: document.querySelector("#explanationLunar"),
   explanationHill: document.querySelector("#explanationHill"),
+  explanationFormula: document.querySelector("#explanationFormula"),
 };
 
 const WIDTH = 960;
@@ -68,6 +70,7 @@ const PIPE_PREVIOUS_CHAMPION_STORAGE_KEY = "neuro-evolution-arcade.flappy.champi
 const PIPE_LEGACY_CHAMPION_STORAGE_KEY = "ai-flappy-evolution.champion";
 const LUNAR_CHAMPION_STORAGE_KEY = "neuro-evolution-arcade.lunar.champion";
 const HILL_CHAMPION_STORAGE_KEY = "neuro-evolution-arcade.hill-climb.champion";
+const FORMULA_CHAMPION_STORAGE_KEY = "neuro-evolution-arcade.formula-circuit.champion";
 const PRESETS = {
   easy: { speed: 2, mutation: 0.08, pipeGap: 190, pipeSpacing: 305 },
   normal: { speed: 3, mutation: 0.1, pipeGap: 150, pipeSpacing: 245 },
@@ -93,11 +96,26 @@ const HILL_INPUT_LABELS = [
   "coin x",
   "coin y",
 ];
+const FORMULA_INPUT_LABELS = [
+  "speed",
+  "slide",
+  "heading",
+  "spin",
+  "offroad",
+  "checkpoint x",
+  "checkpoint y",
+  "curve",
+  "track L",
+  "track FL",
+  "track F",
+  "track FR",
+];
 
 const games = {
   pipe: createPipeGame(),
   lunar: createLunarGame(),
   hill: createHillClimbGame(),
+  formula: createFormulaCircuitGame(),
 };
 
 let activeGameKey = "pipe";
@@ -540,6 +558,7 @@ function updateGameUi() {
   ui.gamePipe.classList.toggle("is-active", activeGameKey === "pipe");
   ui.gameLunar.classList.toggle("is-active", activeGameKey === "lunar");
   ui.gameHill.classList.toggle("is-active", activeGameKey === "hill");
+  ui.gameFormula.classList.toggle("is-active", activeGameKey === "formula");
   ui.activeGameTitle.textContent = game.title;
   ui.gameObjective.textContent = game.objective;
   ui.gameHint.textContent = game.hint;
@@ -556,6 +575,7 @@ function updateGameUi() {
   ui.explanationPipe.classList.toggle("is-hidden", activeGameKey !== "pipe");
   ui.explanationLunar.classList.toggle("is-hidden", activeGameKey !== "lunar");
   ui.explanationHill.classList.toggle("is-hidden", activeGameKey !== "hill");
+  ui.explanationFormula.classList.toggle("is-hidden", activeGameKey !== "formula");
   ui.preset.disabled = !pipeActive;
   updateLunarSettingOutputs();
 }
@@ -2462,6 +2482,502 @@ function createHillClimbGame() {
   };
 }
 
+function createFormulaCircuitGame() {
+  const TRACK_WIDTH = 88;
+  const HALF_TRACK = TRACK_WIDTH / 2;
+  const CAR_LENGTH = 28;
+  const CAR_WIDTH = 15;
+  const MAX_SPEED = 8.4;
+  const ACCELERATION = 0.18;
+  const BRAKE_FORCE = 0.18;
+  const DRAG = 0.988;
+  const OFFROAD_DRAG = 0.93;
+  const TURN_FORCE = 0.046;
+  const GRIP = 0.16;
+  const MAX_AGE = 3600;
+  const SENSOR_RANGE = 132;
+  const SENSOR_STEP = 12;
+  const START_INDEX = 0;
+  const TRACK = [
+    { x: 168, y: 448 },
+    { x: 760, y: 448 },
+    { x: 850, y: 394 },
+    { x: 744, y: 340 },
+    { x: 848, y: 282 },
+    { x: 790, y: 218 },
+    { x: 650, y: 188 },
+    { x: 538, y: 234 },
+    { x: 430, y: 204 },
+    { x: 300, y: 168 },
+    { x: 210, y: 214 },
+    { x: 286, y: 282 },
+    { x: 190, y: 344 },
+    { x: 134, y: 404 },
+  ];
+
+  const SEGMENTS = TRACK.map((point, index) => {
+    const next = TRACK[(index + 1) % TRACK.length];
+    const dx = next.x - point.x;
+    const dy = next.y - point.y;
+    const length = Math.hypot(dx, dy);
+    return {
+      from: point,
+      to: next,
+      dx,
+      dy,
+      length,
+      angle: Math.atan2(dy, dx),
+    };
+  });
+  let runningLength = 0;
+  for (const segment of SEGMENTS) {
+    segment.start = runningLength;
+    runningLength += segment.length;
+  }
+  const TRACK_LENGTH = runningLength;
+  const CHECKPOINTS = TRACK.map((point, index) => ({
+    x: point.x,
+    y: point.y,
+    radius: index === START_INDEX ? 76 : 66,
+  }));
+
+  function normalizeAngle(angle) {
+    let next = angle;
+    while (next > Math.PI) next -= Math.PI * 2;
+    while (next < -Math.PI) next += Math.PI * 2;
+    return next;
+  }
+
+  function closestOnTrack(x, y) {
+    let best = null;
+    for (let index = 0; index < SEGMENTS.length; index += 1) {
+      const segment = SEGMENTS[index];
+      const span = segment.length || 1;
+      const rawT = ((x - segment.from.x) * segment.dx + (y - segment.from.y) * segment.dy) / (span * span);
+      const t = clamp(rawT, 0, 1);
+      const px = segment.from.x + segment.dx * t;
+      const py = segment.from.y + segment.dy * t;
+      const distance = Math.hypot(x - px, y - py);
+      if (!best || distance < best.distance) {
+        best = {
+          x: px,
+          y: py,
+          distance,
+          segmentIndex: index,
+          progress: segment.start + segment.length * t,
+          angle: segment.angle,
+        };
+      }
+    }
+    return best;
+  }
+
+  function pointOnTrack(progress) {
+    let wrapped = progress % TRACK_LENGTH;
+    if (wrapped < 0) wrapped += TRACK_LENGTH;
+    const segment = SEGMENTS.find((candidate) => wrapped <= candidate.start + candidate.length) || SEGMENTS[0];
+    const t = clamp((wrapped - segment.start) / (segment.length || 1), 0, 1);
+    return {
+      x: segment.from.x + segment.dx * t,
+      y: segment.from.y + segment.dy * t,
+      angle: segment.angle,
+      segmentIndex: SEGMENTS.indexOf(segment),
+    };
+  }
+
+  function isOnTrack(x, y) {
+    return closestOnTrack(x, y).distance <= HALF_TRACK;
+  }
+
+  function sensorValue(agent, offset) {
+    const angle = agent.angle + offset;
+    for (let distance = SENSOR_STEP; distance <= SENSOR_RANGE; distance += SENSOR_STEP) {
+      const x = agent.x + Math.cos(angle) * distance;
+      const y = agent.y + Math.sin(angle) * distance;
+      if (!isOnTrack(x, y)) return distance / SENSOR_RANGE;
+    }
+    return 1;
+  }
+
+  function trackDelta(current, previous) {
+    let delta = current - previous;
+    if (delta < -TRACK_LENGTH * 0.55) delta += TRACK_LENGTH;
+    if (delta > TRACK_LENGTH * 0.55) delta -= TRACK_LENGTH;
+    return delta;
+  }
+
+  function resetFormulaAgent(agent) {
+    const start = TRACK[START_INDEX];
+    const startSegment = SEGMENTS[START_INDEX];
+    agent.x = start.x + Math.random() * 22 - 11;
+    agent.y = start.y + Math.random() * 28 - 14;
+    agent.vx = 0;
+    agent.vy = 0;
+    agent.angle = startSegment.angle + (Math.random() * 0.22 - 0.11);
+    agent.angularVelocity = 0;
+    agent.alive = true;
+    agent.fitness = 0;
+    agent.score = 0;
+    agent.age = 0;
+    agent.laps = 0;
+    agent.checkpoints = 0;
+    agent.nextCheckpoint = 1;
+    agent.trackProgress = closestOnTrack(agent.x, agent.y).progress;
+    agent.forwardProgress = 0;
+    agent.lastProgressFrame = 0;
+    agent.offroadFrames = 0;
+    agent.stalledFrames = 0;
+    agent.controls = { gas: false, brake: false, left: false, right: false };
+    agent.hue = 196 + Math.random() * 160;
+  }
+
+  function checkpointTarget(agent) {
+    return CHECKPOINTS[agent.nextCheckpoint];
+  }
+
+  function updateCheckpoint(agent) {
+    const checkpoint = checkpointTarget(agent);
+    if (Math.hypot(agent.x - checkpoint.x, agent.y - checkpoint.y) > checkpoint.radius) return;
+
+    agent.checkpoints += 1;
+    agent.score = agent.laps * CHECKPOINTS.length + agent.checkpoints;
+    agent.fitness += 1200 + Math.max(0, MAX_AGE - agent.age) * 0.05;
+    agent.lastProgressFrame = agent.age;
+    agent.nextCheckpoint = (agent.nextCheckpoint + 1) % CHECKPOINTS.length;
+
+    if (agent.nextCheckpoint === 1) {
+      agent.laps += 1;
+      agent.fitness += 7000;
+    }
+  }
+
+  function inputsFor(agent) {
+    const track = closestOnTrack(agent.x, agent.y);
+    const next = checkpointTarget(agent);
+    const forwardX = Math.cos(agent.angle);
+    const forwardY = Math.sin(agent.angle);
+    const rightX = -forwardY;
+    const rightY = forwardX;
+    const toCheckpointX = next.x - agent.x;
+    const toCheckpointY = next.y - agent.y;
+    const localX = (toCheckpointX * forwardX + toCheckpointY * forwardY) / 360;
+    const localY = (toCheckpointX * rightX + toCheckpointY * rightY) / 260;
+    const forwardSpeed = agent.vx * forwardX + agent.vy * forwardY;
+    const sideSpeed = agent.vx * rightX + agent.vy * rightY;
+    const ahead = pointOnTrack(track.progress + 230);
+    const curve = normalizeAngle(ahead.angle - track.angle) / Math.PI;
+
+    return [
+      clamp(forwardSpeed / MAX_SPEED, -1, 1),
+      clamp(sideSpeed / MAX_SPEED, -1, 1),
+      normalizeAngle(track.angle - agent.angle) / Math.PI,
+      clamp(agent.angularVelocity / 0.16, -1, 1),
+      track.distance > HALF_TRACK ? 1 : 0,
+      clamp(localX, -1, 1),
+      clamp(localY, -1, 1),
+      clamp(curve * 2.2, -1, 1),
+      sensorValue(agent, -1.2),
+      sensorValue(agent, -0.58),
+      sensorValue(agent, 0),
+      sensorValue(agent, 0.58),
+    ];
+  }
+
+  function chooseAction(agent) {
+    const [gas, brake, left, right] = feedForward(agent.genome, inputsFor(agent), games.formula || game);
+    return {
+      gas: gas > 0.52,
+      brake: brake > 0.56,
+      left: left > 0.54,
+      right: right > 0.54,
+    };
+  }
+
+  function controlsForHuman(agent) {
+    return { ...agent.controls };
+  }
+
+  function updateFormula(agent, action) {
+    if (!agent.alive) return;
+
+    agent.age += 1;
+    const forwardX = Math.cos(agent.angle);
+    const forwardY = Math.sin(agent.angle);
+    const rightX = -forwardY;
+    const rightY = forwardX;
+    let forwardSpeed = agent.vx * forwardX + agent.vy * forwardY;
+    let sideSpeed = agent.vx * rightX + agent.vy * rightY;
+    const speed = Math.hypot(agent.vx, agent.vy);
+    const steering = (action.right ? 1 : 0) - (action.left ? 1 : 0);
+
+    if (action.gas) forwardSpeed += ACCELERATION;
+    if (action.brake) {
+      forwardSpeed *= 1 - BRAKE_FORCE;
+      sideSpeed *= 0.9;
+    }
+
+    forwardSpeed = clamp(forwardSpeed, -MAX_SPEED * 0.28, MAX_SPEED);
+    sideSpeed *= 1 - GRIP;
+    agent.angularVelocity += steering * TURN_FORCE * clamp(Math.abs(forwardSpeed) / MAX_SPEED + 0.18, 0, 1);
+    agent.angularVelocity = clamp(agent.angularVelocity, -0.15, 0.15);
+    agent.angle = normalizeAngle(agent.angle + agent.angularVelocity);
+    agent.angularVelocity *= 0.72;
+
+    agent.vx = forwardX * forwardSpeed + rightX * sideSpeed;
+    agent.vy = forwardY * forwardSpeed + rightY * sideSpeed;
+    const track = closestOnTrack(agent.x, agent.y);
+    const onTrack = track.distance <= HALF_TRACK;
+    const drag = onTrack ? DRAG : OFFROAD_DRAG;
+    agent.vx *= drag;
+    agent.vy *= drag;
+    agent.x += agent.vx;
+    agent.y += agent.vy;
+
+    const nextTrack = closestOnTrack(agent.x, agent.y);
+    const progressDelta = trackDelta(nextTrack.progress, agent.trackProgress);
+    agent.trackProgress = nextTrack.progress;
+    if (progressDelta > 0.05 && onTrack) {
+      agent.forwardProgress += Math.min(progressDelta, 18);
+      agent.lastProgressFrame = agent.age;
+      agent.fitness += progressDelta * 3.4;
+    } else if (progressDelta < -2) {
+      agent.fitness += progressDelta * 2.2;
+    }
+
+    const headingError = Math.abs(normalizeAngle(nextTrack.angle - agent.angle));
+    if (onTrack) {
+      agent.offroadFrames = Math.max(0, agent.offroadFrames - 2);
+      agent.fitness += Math.max(0, 1 - headingError / 1.4) * (1.2 + speed * 0.22);
+    } else {
+      agent.offroadFrames += 1;
+      agent.fitness -= 4 + nextTrack.distance * 0.08;
+    }
+
+    updateCheckpoint(agent);
+    agent.stalledFrames = agent.age - agent.lastProgressFrame;
+    agent.score = agent.laps * CHECKPOINTS.length + agent.checkpoints;
+
+    if (
+      agent.offroadFrames > 115 ||
+      agent.stalledFrames > 240 ||
+      agent.age > MAX_AGE ||
+      agent.x < -90 ||
+      agent.x > WIDTH + 90 ||
+      agent.y < -90 ||
+      agent.y > HEIGHT + 90
+    ) {
+      agent.alive = false;
+      agent.fitness -= agent.offroadFrames > 115 ? 420 : 160;
+    }
+  }
+
+  function drawFormulaBackground(targetCtx) {
+    targetCtx.fillStyle = "#567c46";
+    targetCtx.fillRect(0, 0, WIDTH, HEIGHT);
+
+    targetCtx.fillStyle = "#6f934f";
+    for (let y = -30; y < HEIGHT + 60; y += 48) {
+      targetCtx.fillRect(0, y, WIDTH, 18);
+    }
+  }
+
+  function drawTrack(targetCtx) {
+    targetCtx.lineCap = "round";
+    targetCtx.lineJoin = "round";
+    targetCtx.strokeStyle = "#172026";
+    targetCtx.lineWidth = TRACK_WIDTH + 12;
+    targetCtx.beginPath();
+    targetCtx.moveTo(TRACK[0].x, TRACK[0].y);
+    for (const point of TRACK.slice(1)) targetCtx.lineTo(point.x, point.y);
+    targetCtx.closePath();
+    targetCtx.stroke();
+
+    targetCtx.strokeStyle = "#3a4246";
+    targetCtx.lineWidth = TRACK_WIDTH;
+    targetCtx.beginPath();
+    targetCtx.moveTo(TRACK[0].x, TRACK[0].y);
+    for (const point of TRACK.slice(1)) targetCtx.lineTo(point.x, point.y);
+    targetCtx.closePath();
+    targetCtx.stroke();
+
+    targetCtx.strokeStyle = "rgba(255,255,255,0.28)";
+    targetCtx.lineWidth = 2;
+    targetCtx.beginPath();
+    targetCtx.moveTo(TRACK[0].x, TRACK[0].y);
+    for (const point of TRACK.slice(1)) targetCtx.lineTo(point.x, point.y);
+    targetCtx.closePath();
+    targetCtx.stroke();
+
+    for (const [index, checkpoint] of CHECKPOINTS.entries()) {
+      targetCtx.fillStyle = index === START_INDEX ? "rgba(255,255,255,0.9)" : "rgba(242,193,78,0.72)";
+      targetCtx.beginPath();
+      targetCtx.arc(checkpoint.x, checkpoint.y, index === START_INDEX ? 7 : 5, 0, Math.PI * 2);
+      targetCtx.fill();
+    }
+
+    const start = TRACK[START_INDEX];
+    targetCtx.save();
+    targetCtx.translate(start.x, start.y);
+    targetCtx.rotate(SEGMENTS[START_INDEX].angle + Math.PI / 2);
+    targetCtx.fillStyle = "#fff";
+    for (let i = -3; i <= 3; i += 1) {
+      targetCtx.fillRect(i * 10, -HALF_TRACK, 5, TRACK_WIDTH);
+    }
+    targetCtx.restore();
+  }
+
+  function drawFormulaCar(targetCtx, agent, index, mode) {
+    if (!agent.alive && mode === "ai") return;
+    const alpha = mode === "human" || index === 0 ? 1 : 0.42;
+    targetCtx.save();
+    targetCtx.globalAlpha = alpha;
+    targetCtx.translate(agent.x, agent.y);
+    targetCtx.rotate(agent.angle);
+
+    targetCtx.fillStyle = `hsl(${agent.hue} 84% 54%)`;
+    targetCtx.strokeStyle = "#101719";
+    targetCtx.lineWidth = 2;
+    targetCtx.fillRect(-CAR_LENGTH * 0.5, -CAR_WIDTH * 0.5, CAR_LENGTH, CAR_WIDTH);
+    targetCtx.strokeRect(-CAR_LENGTH * 0.5, -CAR_WIDTH * 0.5, CAR_LENGTH, CAR_WIDTH);
+
+    targetCtx.fillStyle = "#f7f7f5";
+    targetCtx.beginPath();
+    targetCtx.moveTo(CAR_LENGTH * 0.5 + 8, 0);
+    targetCtx.lineTo(CAR_LENGTH * 0.18, -CAR_WIDTH * 0.5);
+    targetCtx.lineTo(CAR_LENGTH * 0.18, CAR_WIDTH * 0.5);
+    targetCtx.closePath();
+    targetCtx.fill();
+    targetCtx.stroke();
+
+    targetCtx.fillStyle = "#172026";
+    targetCtx.fillRect(-CAR_LENGTH * 0.38, -CAR_WIDTH * 0.78, 9, 4);
+    targetCtx.fillRect(-CAR_LENGTH * 0.38, CAR_WIDTH * 0.5, 9, 4);
+    targetCtx.fillRect(CAR_LENGTH * 0.18, -CAR_WIDTH * 0.78, 9, 4);
+    targetCtx.fillRect(CAR_LENGTH * 0.18, CAR_WIDTH * 0.5, 9, 4);
+    targetCtx.restore();
+  }
+
+  function drawFormulaHud(targetCtx, currentScore) {
+    targetCtx.fillStyle = "rgba(255,255,255,0.84)";
+    targetCtx.fillRect(WIDTH / 2 - 82, 18, 164, 42);
+    targetCtx.fillStyle = "#172026";
+    targetCtx.textAlign = "center";
+    targetCtx.font = "800 17px system-ui";
+    targetCtx.fillText(`${currentScore} checkpoints`, WIDTH / 2, 45);
+    targetCtx.textAlign = "left";
+  }
+
+  return {
+    key: "formula",
+    title: "Formula Circuit",
+    objective: "Les agents apprennent a boucler un circuit top-down rapide avec chicanes, freinages et checkpoints.",
+    hint: "IA: toute la population roule en fantome. Humain: fleches ou WASD pour gaz, brake et direction.",
+    sequential: false,
+    defaultPopulation: 24,
+    defaultMutation: 0.12,
+    defaultSpeed: 4,
+    maxSpeed: 16,
+    speedLabel: "Race speed",
+    populationLabel: "Cars",
+    leaderFitnessLabel: "Lead car",
+    inputs: 12,
+    hidden: DEFAULT_HIDDEN,
+    outputs: 4,
+    inputLabels: FORMULA_INPUT_LABELS,
+    outputLabels: ["gas", "brake", "left", "right"],
+    outputLabel: "Drive",
+    distanceLabel: "Checkpoints",
+    championStorageKey: FORMULA_CHAMPION_STORAGE_KEY,
+    championStorageKeys: [FORMULA_CHAMPION_STORAGE_KEY],
+    defaultChampionStatus: "No Formula Circuit champion saved yet.",
+    humanNetworkMessage: "Switch to AI training to view the Formula Circuit network.",
+    spaceControlsPrimaryAction: false,
+    createWorld() {
+      return {};
+    },
+    makeAgent(id, genome) {
+      const agent = {
+        id,
+        genome,
+        alive: true,
+        fitness: 0,
+        score: 0,
+      };
+      resetFormulaAgent(agent);
+      return agent;
+    },
+    makeHumanAgent(id) {
+      return this.makeAgent(id, createGenome(this));
+    },
+    resetAgents(nextAgents) {
+      for (const agent of nextAgents) resetFormulaAgent(agent);
+    },
+    resetHuman(agent) {
+      resetFormulaAgent(agent);
+      agent.hue = 205;
+    },
+    stepWorld() {},
+    updateAgent(agent) {
+      updateFormula(agent, chooseAction(agent));
+    },
+    updateHuman(agent) {
+      if (agent) updateFormula(agent, controlsForHuman(agent));
+    },
+    humanPrimaryAction(agent) {
+      if (agent) agent.controls.gas = true;
+    },
+    handleHumanKey(event, agent) {
+      if (!agent || !agent.alive) return false;
+      const actions = {
+        ArrowUp: "gas",
+        KeyW: "gas",
+        ArrowDown: "brake",
+        KeyS: "brake",
+        ArrowLeft: "left",
+        KeyA: "left",
+        ArrowRight: "right",
+        KeyD: "right",
+      };
+      const action = actions[event.code];
+      if (!action) return false;
+      agent.controls[action] = true;
+      return true;
+    },
+    handleHumanKeyUp(event, agent) {
+      if (!agent) return false;
+      const actions = {
+        ArrowUp: "gas",
+        KeyW: "gas",
+        ArrowDown: "brake",
+        KeyS: "brake",
+        ArrowLeft: "left",
+        KeyA: "left",
+        ArrowRight: "right",
+        KeyD: "right",
+      };
+      const action = actions[event.code];
+      if (!action) return false;
+      agent.controls[action] = false;
+      return true;
+    },
+    scoreMetric(nextAgents) {
+      return Math.max(0, ...nextAgents.map((agent) => agent.score));
+    },
+    distanceMetric(agent) {
+      return agent ? agent.score : 0;
+    },
+    draw(targetCtx, targetWorld, visibleAgents, mode, currentScore) {
+      drawFormulaBackground(targetCtx);
+      drawTrack(targetCtx);
+      const ordered = [...visibleAgents].sort((a, b) => b.fitness - a.fitness);
+      for (const [index, agent] of ordered.entries()) drawFormulaCar(targetCtx, agent, index, mode);
+      drawScoreBadge(targetCtx, currentScore);
+      drawFormulaHud(targetCtx, currentScore);
+      drawCrashOverlay(targetCtx, mode, visibleAgents[0], "Press Space or Reset to race again");
+    },
+  };
+}
+
 
 function drawScoreBadge(targetCtx, currentScore) {
   targetCtx.fillStyle = "rgba(255,255,255,0.82)";
@@ -2500,6 +3016,7 @@ ui.modeHuman.addEventListener("click", () => setMode("human"));
 ui.gamePipe.addEventListener("click", () => setGame("pipe"));
 ui.gameLunar.addEventListener("click", () => setGame("lunar"));
 ui.gameHill.addEventListener("click", () => setGame("hill"));
+ui.gameFormula.addEventListener("click", () => setGame("formula"));
 ui.speed.addEventListener("input", () => {
   ui.speedValue.textContent = `${ui.speed.value}x`;
   if (activeGameKey === "pipe") ui.preset.value = "custom";

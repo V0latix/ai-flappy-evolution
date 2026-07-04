@@ -11,6 +11,7 @@ const pipeChampionStorageKey = "neuro-evolution-arcade.pipe-runner.champion";
 const legacyChampionStorageKey = "ai-flappy-evolution.champion";
 const lunarChampionStorageKey = "neuro-evolution-arcade.lunar.champion";
 const hillChampionStorageKey = "neuro-evolution-arcade.hill-climb.champion";
+const formulaChampionStorageKey = "neuro-evolution-arcade.formula-circuit.champion";
 const execFileAsync = promisify(execFile);
 
 class ClassList {
@@ -270,6 +271,7 @@ test("static app includes every primary control and asset reference", async () =
     "gamePipe",
     "gameLunar",
     "gameHill",
+    "gameFormula",
     "activeGameTitle",
     "gameObjective",
     "gameHint",
@@ -293,6 +295,7 @@ test("static app includes every primary control and asset reference", async () =
     "presetPanel",
     "preset",
     "explanationHill",
+    "explanationFormula",
     "leaderFitnessLabel",
     "saveChampion",
     "loadChampion",
@@ -309,6 +312,7 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(html, /Flappy Bird/);
   assert.match(html, /Lunar Lander/);
   assert.match(html, /Hill Climb/);
+  assert.match(html, /Formula Circuit/);
   assert.doesNotMatch(html, /Collines, carburant, flips/);
   assert.match(favicon, /<svg/);
   assert.match(favicon, /Neuro Evolution Arcade/);
@@ -322,14 +326,18 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /inputs: 6/);
   assert.match(script, /inputs: 8/);
   assert.match(script, /inputs: 14/);
+  assert.match(script, /inputs: 12/);
   assert.match(script, /LUNAR_INPUT_LABELS/);
   assert.match(script, /HILL_INPUT_LABELS/);
+  assert.match(script, /FORMULA_INPUT_LABELS/);
   assert.doesNotMatch(script, /"target vx"/);
   assert.doesNotMatch(script, /"pad align"/);
   assert.match(script, /createLunarGame/);
   assert.match(script, /createHillClimbGame/);
+  assert.match(script, /createFormulaCircuitGame/);
   assert.match(script, /outputLabels: \["thrust", "left", "right"\]/);
   assert.match(script, /outputLabels: \["gas", "brake"\]/);
+  assert.match(script, /outputLabels: \["gas", "brake", "left", "right"\]/);
   assert.match(script, /const CHASSIS_WIDTH = 125/);
   assert.match(script, /const CHASSIS_HEIGHT = 40/);
   assert.match(script, /const WHEEL_RADIUS = 17/);
@@ -481,6 +489,8 @@ test("static app includes every primary control and asset reference", async () =
   assert.doesNotMatch(script, /agent\.pendingThrust = false;\n      agent\.pendingLeft = false;\n      agent\.pendingRight = false;/);
   assert.match(script, /next gap/);
   assert.match(script, /pad dx/);
+  assert.match(script, /track L/);
+  assert.match(script, /curve/);
 });
 
 test("module boots, draws AI network labels, and reports initial training state", async () => {
@@ -610,6 +620,49 @@ test("game picker switches to Hill Climb with sequential run controls and networ
   assert.equal(labels.includes("tilt R"), false);
 });
 
+test("game picker switches to Formula Circuit with full-population cars and network shape", async () => {
+  const harness = await loadHarness();
+
+  element(harness, "gameFormula").click();
+  harness.runFrame();
+
+  assert.equal(element(harness, "activeGameTitle").textContent, "Formula Circuit");
+  assert.equal(element(harness, "gameFormula").classList.contains("is-active"), true);
+  assert.equal(element(harness, "pipeSettings").hidden, true);
+  assert.equal(element(harness, "lunarSettings").hidden, true);
+  assert.equal(element(harness, "presetPanel").hidden, true);
+  assert.equal(element(harness, "aliveLabel").textContent, "Alive");
+  assert.equal(element(harness, "alive").textContent, 24);
+  assert.equal(element(harness, "speedLabel").textContent, "Race speed");
+  assert.equal(element(harness, "population").value, 24);
+  assert.equal(element(harness, "mutation").value, "0.12");
+  assert.equal(element(harness, "distanceLabel").textContent, "Checkpoints");
+  assert.equal(element(harness, "leaderFitnessLabel").textContent, "Lead car");
+  assert.equal(element(harness, "speed").value, 4);
+  assert.equal(element(harness, "speed").max, 16);
+
+  const networkCalls = element(harness, "network").getContext().calls;
+  const labels = networkCalls.filter((call) => call.type === "fillText").map((call) => call.text);
+  assert.deepEqual(labels.slice(0, 12), [
+    "speed",
+    "slide",
+    "heading",
+    "spin",
+    "offroad",
+    "checkpoint x",
+    "checkpoint y",
+    "curve",
+    "track L",
+    "track FL",
+    "track F",
+    "track FR",
+  ]);
+  assert.equal(labels.includes("gas"), true);
+  assert.equal(labels.includes("brake"), true);
+  assert.equal(labels.includes("left"), true);
+  assert.equal(labels.includes("right"), true);
+});
+
 test("training controls evolve generations and difficulty presets update numeric settings", async () => {
   const harness = await loadHarness();
   harness.runFrame();
@@ -719,6 +772,33 @@ test("Hill Climb human mode uses gas and brake keys", async () => {
 
   assert.equal(prevented, true);
   assert.equal(element(harness, "activeGameTitle").textContent, "Hill Climb");
+});
+
+test("Formula Circuit human mode uses gas, brake, and steering keys", async () => {
+  const harness = await loadHarness();
+
+  element(harness, "gameFormula").click();
+  element(harness, "modeHuman").click();
+  harness.runFrame();
+
+  assert.equal(element(harness, "generation").textContent, "Human");
+  assert.equal(element(harness, "alive").textContent, 1);
+  assert.equal(element(harness, "nextGen").disabled, true);
+
+  let prevented = 0;
+  for (const code of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]) {
+    harness.window.dispatchEvent({
+      type: "keydown",
+      code,
+      preventDefault() {
+        prevented += 1;
+      },
+    });
+  }
+  harness.runFrame(2);
+
+  assert.equal(prevented, 4);
+  assert.equal(element(harness, "activeGameTitle").textContent, "Formula Circuit");
 });
 
 test("Hill Climb human mode restarts a crashed run with Space", async () => {
@@ -833,6 +913,26 @@ test("Hill Climb champions are saved under the Hill Climb key with compatible ge
   element(harness, "loadChampion").click();
   harness.runFrame();
   assert.match(element(harness, "championStatus").textContent, /Hill Climb champion loaded/);
+});
+
+test("Formula Circuit champions are saved under the Formula key with compatible genome length", async () => {
+  const harness = await loadHarness();
+
+  element(harness, "gameFormula").click();
+  harness.runFrame();
+
+  element(harness, "saveChampion").click();
+  const saved = JSON.parse(harness.storage.getItem(formulaChampionStorageKey));
+
+  assert.equal(saved.game, "formula");
+  assert.equal(saved.genome.length, 123);
+  assert.equal(saved.inputs, 12);
+  assert.equal(saved.hidden, 7);
+  assert.equal(saved.outputs, 4);
+
+  element(harness, "loadChampion").click();
+  harness.runFrame();
+  assert.match(element(harness, "championStatus").textContent, /Formula Circuit champion loaded/);
 });
 
 test("legacy champion storage key remains loadable after project rename", async () => {

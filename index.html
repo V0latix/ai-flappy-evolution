@@ -50,6 +50,9 @@
             <button id="gameHill" class="game-tab" type="button">
               <strong>Hill Climb</strong>
             </button>
+            <button id="gameFormula" class="game-tab" type="button">
+              <strong>Formula Circuit</strong>
+            </button>
           </section>
 
           <div class="stage-wrap">
@@ -153,6 +156,30 @@
               Le terrain devient plus difficile avec la distance : depart doux, longues collines,
               bosses plus rapprochees, rampes naturelles, puis pentes raides et receptions plus
               exigeantes.
+            </p>
+          </section>
+
+          <section id="explanationFormula" class="panel-section explanation is-hidden">
+            <h2>Comment Formula Circuit apprend</h2>
+            <p>
+              Chaque voiture pilote sur un circuit top-down original inspire des pistes rapides de
+              Formule 1. Le trace privilegie les longues lignes droites, les gros freinages, les
+              chicanes et une grande courbe finale.
+            </p>
+            <p>
+              Le reseau observe la vitesse, la derive, l'angle avec la trajectoire, la prochaine
+              cible de checkpoint, la courbure proche et plusieurs capteurs de piste devant la
+              voiture. Il renvoie quatre commandes combinables : gaz, brake, gauche et droite.
+            </p>
+            <p>
+              Toute la population roule en meme temps. Les voitures sont des fantomes entre elles :
+              elles ne se percutent pas, pour que l'evolution apprenne surtout a suivre le circuit
+              dans le bon sens.
+            </p>
+            <p>
+              La fitness recompense les checkpoints dans l'ordre, les tours termines, la vitesse
+              utile sur la piste et l'alignement avec la prochaine portion. Les sorties longues,
+              les demi-tours et l'absence de progression mettent fin a l'essai.
             </p>
           </section>
         </div>
