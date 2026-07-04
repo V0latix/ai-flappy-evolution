@@ -28,9 +28,8 @@ The app currently runs entirely in the browser and includes:
   with increasing difficulty
 - Formula Circuit with twelve inputs for speed, slide, heading, checkpoint
   targeting, curve reading, and track sensors, plus gas/brake/left/right outputs
-- Formula Circuit runs the full AI population at once on a fixed top-down
-  circuit inspired by fast Formula 1 layouts, with ghost cars and checkpoint
-  scoring
+- Formula Circuit runs the full AI population at once on a large scrolling
+  top-down Monza layout, with ghost cars and checkpoint scoring
 - Human play mode with the space bar for Flappy Bird and space plus arrows/A/D
   for Lunar Lander. Hill Climb uses right/up/W/D for gas and left/down/A/S for brake.
   Formula Circuit uses arrows or WASD for gas, brake, and steering
@@ -79,16 +78,17 @@ control model more closely than separate tilt buttons. The fitness score is
 dominated by maximum distance, with smaller bonuses for coins, survived flips,
 and remaining fuel.
 
-`Formula Circuit` trains top-down racing agents on one original closed circuit
-inspired by the rhythm of Monza: long straights, heavy braking zones, chicanes,
-fast corners, and a final sweeping turn. Every specimen drives at the same time,
-but cars are ghosts and do not collide with each other. The network observes
-forward speed, side slip, heading error, spin, off-track state, the next
-checkpoint in car-local coordinates, nearby curve direction, and four track
-sensors. Its four outputs are combinable gas, brake, left, and right commands.
-Fitness rewards checkpoints in order, completed laps, useful speed on track, and
-alignment with the racing line, while long off-track runs, reversing, and lack of
-progress end the attempt.
+`Formula Circuit` trains top-down racing agents on a large scrolling version of
+the current Monza Grand Prix layout: Rettifilo, Variante del Rettifilo, Curva
+Grande, Variante della Roggia, Lesmo 1 and 2, Variante Ascari, the opposite
+straight, and Curva Alboreto back onto the main straight. Every specimen drives
+at the same time, but cars are ghosts and do not collide with each other. The
+network observes forward speed, side slip, heading error, spin, off-track state,
+the next checkpoint in car-local coordinates, nearby curve direction, and four
+track sensors. Its four outputs are combinable gas, brake, left, and right
+commands. Fitness rewards checkpoints in order, completed laps, useful speed on
+track, and alignment with the racing line, while long off-track runs, reversing,
+and lack of progress end the attempt.
 
 ## Next Game Ideas
 
@@ -157,5 +157,5 @@ environment.
 This project intentionally uses simple geometric canvas art instead of
 copyrighted game assets. Hill Climb uses original terrain, physics tuning, and
 shapes rather than copied game assets or level data.
-Formula Circuit uses an original circuit layout inspired by fast Formula 1 track
-patterns rather than official track data or branding.
+Formula Circuit uses a hand-drawn geometric approximation of Monza's current
+Grand Prix route rather than official track artwork, logos, or branding.

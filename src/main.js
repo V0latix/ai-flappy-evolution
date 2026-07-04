@@ -2483,37 +2483,61 @@ function createHillClimbGame() {
 }
 
 function createFormulaCircuitGame() {
-  const TRACK_WIDTH = 88;
+  const FORMULA_WORLD_WIDTH = 3600;
+  const FORMULA_WORLD_HEIGHT = 2500;
+  const TRACK_WIDTH = 118;
   const HALF_TRACK = TRACK_WIDTH / 2;
   const CAR_LENGTH = 28;
   const CAR_WIDTH = 15;
-  const MAX_SPEED = 8.4;
-  const ACCELERATION = 0.18;
-  const BRAKE_FORCE = 0.18;
+  const MAX_SPEED = 9.8;
+  const ACCELERATION = 0.2;
+  const BRAKE_FORCE = 0.2;
   const DRAG = 0.988;
   const OFFROAD_DRAG = 0.93;
-  const TURN_FORCE = 0.046;
+  const TURN_FORCE = 0.044;
   const GRIP = 0.16;
-  const MAX_AGE = 3600;
-  const SENSOR_RANGE = 132;
-  const SENSOR_STEP = 12;
+  const MAX_AGE = 6200;
+  const SENSOR_RANGE = 190;
+  const SENSOR_STEP = 14;
   const START_INDEX = 0;
-  const TRACK = [
-    { x: 168, y: 448 },
-    { x: 760, y: 448 },
-    { x: 850, y: 394 },
-    { x: 744, y: 340 },
-    { x: 848, y: 282 },
-    { x: 790, y: 218 },
-    { x: 650, y: 188 },
-    { x: 538, y: 234 },
-    { x: 430, y: 204 },
-    { x: 300, y: 168 },
-    { x: 210, y: 214 },
-    { x: 286, y: 282 },
-    { x: 190, y: 344 },
-    { x: 134, y: 404 },
+  const CAMERA_LEAD_X = 360;
+  const CAMERA_LEAD_Y = 280;
+  const MONZA_CENTERLINE = [
+    { x: 1240, y: 2040, name: "Rettifilo" },
+    { x: 1900, y: 2040, name: "Rettifilo" },
+    { x: 2520, y: 2042, name: "Rettifilo" },
+    { x: 3060, y: 2048, name: "Rettifilo" },
+    { x: 3260, y: 2144, name: "Variante del Rettifilo" },
+    { x: 3412, y: 2058, name: "Variante del Rettifilo" },
+    { x: 3310, y: 1886, name: "Variante del Rettifilo" },
+    { x: 3110, y: 1655, name: "Curva Grande" },
+    { x: 2790, y: 1456, name: "Curva Grande" },
+    { x: 2390, y: 1350, name: "Curva Grande" },
+    { x: 2180, y: 1245, name: "Variante della Roggia" },
+    { x: 2030, y: 1092, name: "Variante della Roggia" },
+    { x: 1848, y: 1195, name: "Variante della Roggia" },
+    { x: 1692, y: 1012, name: "Variante della Roggia" },
+    { x: 1455, y: 898, name: "Lesmo 1" },
+    { x: 1225, y: 940, name: "Lesmo 1" },
+    { x: 1120, y: 1120, name: "Lesmo 1" },
+    { x: 920, y: 1180, name: "Lesmo 2" },
+    { x: 805, y: 1368, name: "Lesmo 2" },
+    { x: 922, y: 1548, name: "Serraglio" },
+    { x: 1160, y: 1712, name: "Serraglio" },
+    { x: 1365, y: 1888, name: "Variante Ascari" },
+    { x: 1240, y: 2052, name: "Variante Ascari" },
+    { x: 1428, y: 2176, name: "Variante Ascari" },
+    { x: 1695, y: 2078, name: "Variante Ascari" },
+    { x: 2140, y: 1902, name: "Rettilineo Opposto" },
+    { x: 2610, y: 1830, name: "Rettilineo Opposto" },
+    { x: 3058, y: 1938, name: "Curva Alboreto" },
+    { x: 3296, y: 2105, name: "Curva Alboreto" },
+    { x: 3185, y: 2290, name: "Curva Alboreto" },
+    { x: 2760, y: 2375, name: "Curva Alboreto" },
+    { x: 2200, y: 2242, name: "Curva Alboreto" },
+    { x: 1660, y: 2105, name: "Rettifilo" },
   ];
+  const TRACK = MONZA_CENTERLINE;
 
   const SEGMENTS = TRACK.map((point, index) => {
     const next = TRACK[(index + 1) % TRACK.length];
@@ -2538,7 +2562,8 @@ function createFormulaCircuitGame() {
   const CHECKPOINTS = TRACK.map((point, index) => ({
     x: point.x,
     y: point.y,
-    radius: index === START_INDEX ? 76 : 66,
+    name: point.name,
+    radius: index === START_INDEX ? 122 : 104,
   }));
 
   function normalizeAngle(angle) {
@@ -2609,8 +2634,8 @@ function createFormulaCircuitGame() {
   function resetFormulaAgent(agent) {
     const start = TRACK[START_INDEX];
     const startSegment = SEGMENTS[START_INDEX];
-    agent.x = start.x + Math.random() * 22 - 11;
-    agent.y = start.y + Math.random() * 28 - 14;
+    agent.x = start.x + Math.random() * 36 - 18;
+    agent.y = start.y + Math.random() * 44 - 22;
     agent.vx = 0;
     agent.vy = 0;
     agent.angle = startSegment.angle + (Math.random() * 0.22 - 0.11);
@@ -2660,8 +2685,8 @@ function createFormulaCircuitGame() {
     const rightY = forwardX;
     const toCheckpointX = next.x - agent.x;
     const toCheckpointY = next.y - agent.y;
-    const localX = (toCheckpointX * forwardX + toCheckpointY * forwardY) / 360;
-    const localY = (toCheckpointX * rightX + toCheckpointY * rightY) / 260;
+    const localX = (toCheckpointX * forwardX + toCheckpointY * forwardY) / 920;
+    const localY = (toCheckpointX * rightX + toCheckpointY * rightY) / 620;
     const forwardSpeed = agent.vx * forwardX + agent.vy * forwardY;
     const sideSpeed = agent.vx * rightX + agent.vy * rightY;
     const ahead = pointOnTrack(track.progress + 230);
@@ -2761,77 +2786,109 @@ function createFormulaCircuitGame() {
       agent.offroadFrames > 115 ||
       agent.stalledFrames > 240 ||
       agent.age > MAX_AGE ||
-      agent.x < -90 ||
-      agent.x > WIDTH + 90 ||
-      agent.y < -90 ||
-      agent.y > HEIGHT + 90
+      agent.x < -180 ||
+      agent.x > FORMULA_WORLD_WIDTH + 180 ||
+      agent.y < -180 ||
+      agent.y > FORMULA_WORLD_HEIGHT + 180
     ) {
       agent.alive = false;
       agent.fitness -= agent.offroadFrames > 115 ? 420 : 160;
     }
   }
 
-  function drawFormulaBackground(targetCtx) {
-    targetCtx.fillStyle = "#567c46";
+  function updateCamera(targetWorld, agent) {
+    if (!agent) return;
+    const targetX = clamp(agent.x - CAMERA_LEAD_X, 0, FORMULA_WORLD_WIDTH - WIDTH);
+    const targetY = clamp(agent.y - CAMERA_LEAD_Y, 0, FORMULA_WORLD_HEIGHT - HEIGHT);
+    targetWorld.cameraX += (targetX - targetWorld.cameraX) * 0.16;
+    targetWorld.cameraY += (targetY - targetWorld.cameraY) * 0.16;
+  }
+
+  function drawFormulaBackground(targetCtx, cameraX, cameraY) {
+    targetCtx.fillStyle = "#506f43";
     targetCtx.fillRect(0, 0, WIDTH, HEIGHT);
 
-    targetCtx.fillStyle = "#6f934f";
-    for (let y = -30; y < HEIGHT + 60; y += 48) {
-      targetCtx.fillRect(0, y, WIDTH, 18);
+    targetCtx.fillStyle = "#66894f";
+    const startY = -((cameraY * 0.28) % 56) - 56;
+    for (let y = startY; y < HEIGHT + 80; y += 56) {
+      targetCtx.fillRect(0, y, WIDTH, 20);
+    }
+
+    targetCtx.strokeStyle = "rgba(35,54,35,0.16)";
+    targetCtx.lineWidth = 1;
+    const gridX = -(cameraX % 180);
+    const gridY = -(cameraY % 180);
+    for (let x = gridX; x < WIDTH + 180; x += 180) {
+      targetCtx.beginPath();
+      targetCtx.moveTo(x, 0);
+      targetCtx.lineTo(x, HEIGHT);
+      targetCtx.stroke();
+    }
+    for (let y = gridY; y < HEIGHT + 180; y += 180) {
+      targetCtx.beginPath();
+      targetCtx.moveTo(0, y);
+      targetCtx.lineTo(WIDTH, y);
+      targetCtx.stroke();
     }
   }
 
-  function drawTrack(targetCtx) {
+  function drawTrack(targetCtx, cameraX, cameraY) {
     targetCtx.lineCap = "round";
     targetCtx.lineJoin = "round";
     targetCtx.strokeStyle = "#172026";
     targetCtx.lineWidth = TRACK_WIDTH + 12;
     targetCtx.beginPath();
-    targetCtx.moveTo(TRACK[0].x, TRACK[0].y);
-    for (const point of TRACK.slice(1)) targetCtx.lineTo(point.x, point.y);
+    targetCtx.moveTo(TRACK[0].x - cameraX, TRACK[0].y - cameraY);
+    for (const point of TRACK.slice(1)) targetCtx.lineTo(point.x - cameraX, point.y - cameraY);
     targetCtx.closePath();
     targetCtx.stroke();
 
     targetCtx.strokeStyle = "#3a4246";
     targetCtx.lineWidth = TRACK_WIDTH;
     targetCtx.beginPath();
-    targetCtx.moveTo(TRACK[0].x, TRACK[0].y);
-    for (const point of TRACK.slice(1)) targetCtx.lineTo(point.x, point.y);
+    targetCtx.moveTo(TRACK[0].x - cameraX, TRACK[0].y - cameraY);
+    for (const point of TRACK.slice(1)) targetCtx.lineTo(point.x - cameraX, point.y - cameraY);
     targetCtx.closePath();
     targetCtx.stroke();
 
     targetCtx.strokeStyle = "rgba(255,255,255,0.28)";
     targetCtx.lineWidth = 2;
     targetCtx.beginPath();
-    targetCtx.moveTo(TRACK[0].x, TRACK[0].y);
-    for (const point of TRACK.slice(1)) targetCtx.lineTo(point.x, point.y);
+    targetCtx.moveTo(TRACK[0].x - cameraX, TRACK[0].y - cameraY);
+    for (const point of TRACK.slice(1)) targetCtx.lineTo(point.x - cameraX, point.y - cameraY);
     targetCtx.closePath();
     targetCtx.stroke();
 
     for (const [index, checkpoint] of CHECKPOINTS.entries()) {
+      const x = checkpoint.x - cameraX;
+      const y = checkpoint.y - cameraY;
+      if (x < -160 || x > WIDTH + 160 || y < -160 || y > HEIGHT + 160) continue;
       targetCtx.fillStyle = index === START_INDEX ? "rgba(255,255,255,0.9)" : "rgba(242,193,78,0.72)";
       targetCtx.beginPath();
-      targetCtx.arc(checkpoint.x, checkpoint.y, index === START_INDEX ? 7 : 5, 0, Math.PI * 2);
+      targetCtx.arc(x, y, index === START_INDEX ? 8 : 5, 0, Math.PI * 2);
       targetCtx.fill();
     }
 
     const start = TRACK[START_INDEX];
     targetCtx.save();
-    targetCtx.translate(start.x, start.y);
+    targetCtx.translate(start.x - cameraX, start.y - cameraY);
     targetCtx.rotate(SEGMENTS[START_INDEX].angle + Math.PI / 2);
     targetCtx.fillStyle = "#fff";
-    for (let i = -3; i <= 3; i += 1) {
-      targetCtx.fillRect(i * 10, -HALF_TRACK, 5, TRACK_WIDTH);
+    for (let i = -4; i <= 4; i += 1) {
+      targetCtx.fillRect(i * 12, -HALF_TRACK, 6, TRACK_WIDTH);
     }
     targetCtx.restore();
   }
 
-  function drawFormulaCar(targetCtx, agent, index, mode) {
+  function drawFormulaCar(targetCtx, agent, index, mode, cameraX, cameraY) {
     if (!agent.alive && mode === "ai") return;
+    const screenX = agent.x - cameraX;
+    const screenY = agent.y - cameraY;
+    if (screenX < -80 || screenX > WIDTH + 80 || screenY < -80 || screenY > HEIGHT + 80) return;
     const alpha = mode === "human" || index === 0 ? 1 : 0.42;
     targetCtx.save();
     targetCtx.globalAlpha = alpha;
-    targetCtx.translate(agent.x, agent.y);
+    targetCtx.translate(screenX, screenY);
     targetCtx.rotate(agent.angle);
 
     targetCtx.fillStyle = `hsl(${agent.hue} 84% 54%)`;
@@ -2867,6 +2924,48 @@ function createFormulaCircuitGame() {
     targetCtx.textAlign = "left";
   }
 
+  function drawFormulaMiniMap(targetCtx, targetWorld, visibleAgents) {
+    const mapWidth = 206;
+    const mapHeight = 142;
+    const mapX = WIDTH - mapWidth - 18;
+    const mapY = 82;
+    const scale = Math.min((mapWidth - 24) / FORMULA_WORLD_WIDTH, (mapHeight - 24) / FORMULA_WORLD_HEIGHT);
+    const offsetX = mapX + 12;
+    const offsetY = mapY + 12;
+    const toMapX = (x) => offsetX + x * scale;
+    const toMapY = (y) => offsetY + y * scale;
+
+    targetCtx.fillStyle = "rgba(255,255,255,0.84)";
+    targetCtx.fillRect(mapX, mapY, mapWidth, mapHeight);
+    targetCtx.strokeStyle = "#172026";
+    targetCtx.lineWidth = 2;
+    targetCtx.strokeRect(mapX, mapY, mapWidth, mapHeight);
+
+    targetCtx.strokeStyle = "#3a4246";
+    targetCtx.lineWidth = 5;
+    targetCtx.beginPath();
+    targetCtx.moveTo(toMapX(TRACK[0].x), toMapY(TRACK[0].y));
+    for (const point of TRACK.slice(1)) targetCtx.lineTo(toMapX(point.x), toMapY(point.y));
+    targetCtx.closePath();
+    targetCtx.stroke();
+
+    targetCtx.strokeStyle = "rgba(26,86,219,0.76)";
+    targetCtx.lineWidth = 1.5;
+    targetCtx.strokeRect(toMapX(targetWorld.cameraX), toMapY(targetWorld.cameraY), WIDTH * scale, HEIGHT * scale);
+
+    for (const agent of visibleAgents) {
+      if (!agent.alive) continue;
+      targetCtx.fillStyle = "#e83f75";
+      targetCtx.beginPath();
+      targetCtx.arc(toMapX(agent.x), toMapY(agent.y), 2.2, 0, Math.PI * 2);
+      targetCtx.fill();
+    }
+
+    targetCtx.fillStyle = "#172026";
+    targetCtx.font = "700 11px system-ui";
+    targetCtx.fillText("Monza", mapX + 12, mapY + 20);
+  }
+
   return {
     key: "formula",
     title: "Formula Circuit",
@@ -2893,7 +2992,10 @@ function createFormulaCircuitGame() {
     humanNetworkMessage: "Switch to AI training to view the Formula Circuit network.",
     spaceControlsPrimaryAction: false,
     createWorld() {
-      return {};
+      return {
+        cameraX: clamp(TRACK[START_INDEX].x - CAMERA_LEAD_X, 0, FORMULA_WORLD_WIDTH - WIDTH),
+        cameraY: clamp(TRACK[START_INDEX].y - CAMERA_LEAD_Y, 0, FORMULA_WORLD_HEIGHT - HEIGHT),
+      };
     },
     makeAgent(id, genome) {
       const agent = {
@@ -2967,12 +3069,16 @@ function createFormulaCircuitGame() {
       return agent ? agent.score : 0;
     },
     draw(targetCtx, targetWorld, visibleAgents, mode, currentScore) {
-      drawFormulaBackground(targetCtx);
-      drawTrack(targetCtx);
       const ordered = [...visibleAgents].sort((a, b) => b.fitness - a.fitness);
-      for (const [index, agent] of ordered.entries()) drawFormulaCar(targetCtx, agent, index, mode);
+      updateCamera(targetWorld, ordered[0]);
+      drawFormulaBackground(targetCtx, targetWorld.cameraX, targetWorld.cameraY);
+      drawTrack(targetCtx, targetWorld.cameraX, targetWorld.cameraY);
+      for (const [index, agent] of ordered.entries()) {
+        drawFormulaCar(targetCtx, agent, index, mode, targetWorld.cameraX, targetWorld.cameraY);
+      }
       drawScoreBadge(targetCtx, currentScore);
       drawFormulaHud(targetCtx, currentScore);
+      drawFormulaMiniMap(targetCtx, targetWorld, ordered);
       drawCrashOverlay(targetCtx, mode, visibleAgents[0], "Press Space or Reset to race again");
     },
   };
