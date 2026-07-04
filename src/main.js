@@ -666,20 +666,18 @@ function humanPrimaryAction() {
 function handleKeydown(event) {
   if (playMode !== "human") return;
 
-  if (event.code === "Space" && (!humanAgent || !humanAgent.alive)) {
+  if (event.code === "Space") {
     event.preventDefault();
-    humanPrimaryAction();
+    if (!humanAgent || !humanAgent.alive) {
+      humanPrimaryAction();
+    } else if (game.spaceControlsPrimaryAction !== false) {
+      humanPrimaryAction();
+    }
     return;
   }
 
   if (game.handleHumanKey(event, humanAgent)) {
     event.preventDefault();
-    return;
-  }
-
-  if (event.code === "Space") {
-    event.preventDefault();
-    humanPrimaryAction();
   }
 }
 
@@ -1666,6 +1664,8 @@ function createHillClimbGame() {
   const HILL_BRAKE_FORCE = 0.42;
   const HILL_AIR_PEDAL_TORQUE = 0.0032;
   const WHEEL_BASE_STIFFNESS = 0.58;
+  const WHEEL_CHASSIS_STIFFNESS = 0.48;
+  const WHEEL_CHASSIS_DAMPING = 0.18;
   const CHASSIS_ANGLE_FOLLOW = 0.14;
   const HILL_AIR_ANGLE_FOLLOW = 0.006;
   const HILL_AIR_ROTATION_DAMPING = 0.996;
@@ -1674,6 +1674,7 @@ function createHillClimbGame() {
   const CHASSIS_HARD_IMPACT_SPEED = 7.2;
   const HILL_SUBSTEPS = 3;
   const SUSPENSION_REST_LENGTH = 15;
+  const MAX_SUSPENSION_EXTENSION = SUSPENSION_REST_LENGTH + WHEEL_RADIUS * 0.85;
   const MAX_FUEL = 1200;
   const START_X = 120;
   const START_Y_OFFSET = 76;
@@ -1914,6 +1915,33 @@ function createHillClimbGame() {
     agent.frontWheel.y -= adjustY;
   }
 
+  function constrainWheelToChassis(agent, wheel, side) {
+    const mount = localPoint(agent, side * WHEEL_BASE * 0.42, CHASSIS_HEIGHT * 0.22);
+    const dx = wheel.x - mount.x;
+    const dy = wheel.y - mount.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    if (distance <= MAX_SUSPENSION_EXTENSION) return;
+
+    const excess = (distance - MAX_SUSPENSION_EXTENSION) * WHEEL_CHASSIS_STIFFNESS;
+    const nx = dx / distance;
+    const ny = dy / distance;
+    const wheelShare = wheel.contact ? 0.14 : 0.36;
+    const bodyShare = 1 - wheelShare;
+
+    agent.x += nx * excess * bodyShare;
+    agent.y += ny * excess * bodyShare;
+    wheel.x -= nx * excess * wheelShare;
+    wheel.y -= ny * excess * wheelShare;
+
+    const relativeVelocity = (wheel.vx - agent.vx) * nx + (wheel.vy - agent.vy) * ny;
+    if (relativeVelocity <= 0) return;
+    const damping = relativeVelocity * WHEEL_CHASSIS_DAMPING;
+    agent.vx += nx * damping * bodyShare;
+    agent.vy += ny * damping * bodyShare;
+    wheel.vx -= nx * damping * wheelShare;
+    wheel.vy -= ny * damping * wheelShare;
+  }
+
   function alignChassisToWheels(agent, action, dt) {
     const rear = agent.rearWheel;
     const front = agent.frontWheel;
@@ -2034,6 +2062,9 @@ function createHillClimbGame() {
       integrateWheel(agent, agent.frontWheel, 1, effectiveAction, dt);
       enforceWheelBase(agent);
       alignChassisToWheels(agent, effectiveAction, dt);
+      constrainWheelToChassis(agent, agent.rearWheel, -1);
+      constrainWheelToChassis(agent, agent.frontWheel, 1);
+      enforceWheelBase(agent);
       agent.rearContact = agent.rearContact || agent.rearWheel.contact;
       agent.frontContact = agent.frontContact || agent.frontWheel.contact;
     }
@@ -2315,6 +2346,7 @@ function createHillClimbGame() {
     championStorageKeys: [HILL_CHAMPION_STORAGE_KEY],
     defaultChampionStatus: "No Hill Climb champion saved yet.",
     humanNetworkMessage: "Switch to AI training to view the Hill Climb network.",
+    spaceControlsPrimaryAction: false,
     createWorld() {
       return {
         activeAgentIndex: 0,
@@ -2368,7 +2400,6 @@ function createHillClimbGame() {
       const actions = {
         ArrowUp: "gas",
         KeyW: "gas",
-        Space: "gas",
         ArrowRight: "gas",
         KeyD: "gas",
         ArrowLeft: "brake",
@@ -2378,7 +2409,7 @@ function createHillClimbGame() {
       };
       const action = actions[event.code];
       if (!action) return false;
-      if (!agent.alive) resetHillAgent(agent);
+      if (!agent.alive) return false;
       agent.controls[action] = true;
       return true;
     },
@@ -2387,7 +2418,6 @@ function createHillClimbGame() {
       const actions = {
         ArrowUp: "gas",
         KeyW: "gas",
-        Space: "gas",
         ArrowRight: "gas",
         KeyD: "gas",
         ArrowLeft: "brake",

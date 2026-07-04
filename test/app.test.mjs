@@ -350,6 +350,8 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /const HILL_BRAKE_FORCE = 0\.42/);
   assert.match(script, /const HILL_AIR_PEDAL_TORQUE = 0\.0032/);
   assert.match(script, /const WHEEL_BASE_STIFFNESS = 0\.58/);
+  assert.match(script, /const WHEEL_CHASSIS_STIFFNESS = 0\.48/);
+  assert.match(script, /const WHEEL_CHASSIS_DAMPING = 0\.18/);
   assert.match(script, /const CHASSIS_ANGLE_FOLLOW = 0\.14/);
   assert.match(script, /const HILL_AIR_ANGLE_FOLLOW = 0\.006/);
   assert.match(script, /const HILL_AIR_ROTATION_DAMPING = 0\.996/);
@@ -357,6 +359,7 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /const CHASSIS_SCRAPE_LIMIT = 40/);
   assert.match(script, /const CHASSIS_HARD_IMPACT_SPEED = 7\.2/);
   assert.match(script, /const SUSPENSION_REST_LENGTH = 15/);
+  assert.match(script, /const MAX_SUSPENSION_EXTENSION = SUSPENSION_REST_LENGTH \+ WHEEL_RADIUS \* 0\.85/);
   assert.match(script, /const FUEL_SPACING = 900/);
   assert.match(script, /const COIN_X = Array\.from/);
   assert.match(script, /const COIN_LIFTS = \[42, 32, 38\]/);
@@ -371,6 +374,7 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /const torque = clamp\(speedError \* CODE_BULLET_MOTOR_RESPONSE, -maxTorque, maxTorque\)/);
   assert.match(script, /function integrateWheel\(agent, wheel, side, action, dt\)/);
   assert.match(script, /function enforceWheelBase\(agent\)/);
+  assert.match(script, /function constrainWheelToChassis\(agent, wheel, side\)/);
   assert.match(script, /function alignChassisToWheels\(agent, action, dt\)/);
   assert.match(script, /function suspensionWheel\(agent, side\)/);
   assert.match(script, /drawDriver\(targetCtx\)/);
@@ -390,6 +394,8 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /drawHillDistanceBadge\(targetCtx, currentScore\)/);
   assert.match(script, /targetCtx\.lineWidth = 2/);
   assert.match(script, /applyCodeBulletMotor\(wheel, side, action, dt\)/);
+  assert.match(script, /constrainWheelToChassis\(agent, agent\.rearWheel, -1\)/);
+  assert.match(script, /constrainWheelToChassis\(agent, agent\.frontWheel, 1\)/);
   assert.match(script, /deepest > CHASSIS_SCRAPE_LIMIT/);
   assert.doesNotMatch(script, /function applyForce\(agent, point, forceX, forceY/);
   assert.doesNotMatch(script, /function applyWheel\(agent, side, action, contact\)/);
@@ -422,6 +428,9 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /handleHumanKeyUp\(event, agent\)/);
   assert.match(script, /agent\.controls\[action\] = true/);
   assert.match(script, /agent\.controls\[action\] = false/);
+  assert.match(script, /spaceControlsPrimaryAction: false/);
+  assert.doesNotMatch(script, /Space: "gas"/);
+  assert.doesNotMatch(script, /if \(!agent\.alive\) resetHillAgent\(agent\)/);
   assert.doesNotMatch(script, /setTimedControl/);
   assert.match(script, /window\.addEventListener\("keyup", handleKeyup\)/);
   assert.match(script, /handleHumanKeyUp\(event, agent\)/);
@@ -705,6 +714,55 @@ test("Hill Climb human mode uses gas and brake keys", async () => {
 
   assert.equal(prevented, true);
   assert.equal(element(harness, "activeGameTitle").textContent, "Hill Climb");
+});
+
+test("Hill Climb human mode restarts a crashed run with Space", async () => {
+  const harness = await loadHarness();
+
+  element(harness, "gameHill").click();
+  element(harness, "modeHuman").click();
+  harness.runFrame();
+
+  harness.window.dispatchEvent({
+    type: "keydown",
+    code: "ArrowRight",
+    preventDefault() {},
+  });
+  harness.runFrame(900);
+  harness.window.dispatchEvent({
+    type: "keyup",
+    code: "ArrowRight",
+    preventDefault() {},
+  });
+  harness.runFrame();
+
+  assert.equal(element(harness, "toggleRun").textContent, "Resume");
+  assert.equal(element(harness, "alive").textContent, 0);
+
+  harness.window.dispatchEvent({
+    type: "keydown",
+    code: "ArrowRight",
+    preventDefault() {},
+  });
+  harness.runFrame();
+
+  assert.equal(element(harness, "toggleRun").textContent, "Resume");
+  assert.equal(element(harness, "alive").textContent, 0);
+
+  let prevented = false;
+  harness.window.dispatchEvent({
+    type: "keydown",
+    code: "Space",
+    preventDefault() {
+      prevented = true;
+    },
+  });
+  harness.runFrame();
+
+  assert.equal(prevented, true);
+  assert.equal(element(harness, "toggleRun").textContent, "Pause");
+  assert.equal(element(harness, "alive").textContent, 1);
+  assert.equal(element(harness, "score").textContent, 0);
 });
 
 test("champion save, load, clear, and incompatible payload handling work", async () => {
