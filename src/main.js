@@ -2516,6 +2516,7 @@ function createFormulaCircuitGame() {
   const POST_LAP_BASE_CHECKPOINT_BONUS = 1800;
   const POST_LAP_TARGET_SPLIT = 150;
   const CHECKPOINT_SPEED_MULTIPLIER = 44;
+  const CHECKPOINT_PROGRESS_FITNESS = 7.5;
   const TARGET_LAP_TIME = 2200;
   const LAP_COMPLETION_BONUS = 12000;
   const LAP_SPEED_MULTIPLIER = 9;
@@ -2691,6 +2692,7 @@ function createFormulaCircuitGame() {
     return {
       x: projected.x,
       y: projected.y,
+      progress: projected.progress,
       name: point.name,
       angle,
       geometry,
@@ -2731,6 +2733,31 @@ function createFormulaCircuitGame() {
     if (delta < -TRACK_LENGTH * 0.55) delta += TRACK_LENGTH;
     if (delta > TRACK_LENGTH * 0.55) delta -= TRACK_LENGTH;
     return delta;
+  }
+
+  function forwardDistanceBetween(from, to) {
+    let distance = to - from;
+    if (distance < 0) distance += TRACK_LENGTH;
+    return distance;
+  }
+
+  function checkpointSegmentProgress(agent, progress) {
+    const previousCheckpoint = CHECKPOINTS[(agent.nextCheckpoint - 1 + CHECKPOINTS.length) % CHECKPOINTS.length];
+    const nextCheckpoint = checkpointTarget(agent);
+    const segmentLength = Math.max(1, forwardDistanceBetween(previousCheckpoint.progress, nextCheckpoint.progress));
+    let progressFromPrevious = 0;
+
+    if (nextCheckpoint.progress < previousCheckpoint.progress) {
+      if (progress >= previousCheckpoint.progress) {
+        progressFromPrevious = progress - previousCheckpoint.progress;
+      } else if (progress <= nextCheckpoint.progress) {
+        progressFromPrevious = progress + TRACK_LENGTH - previousCheckpoint.progress;
+      }
+    } else if (progress >= previousCheckpoint.progress) {
+      progressFromPrevious = progress - previousCheckpoint.progress;
+    }
+
+    return clamp(progressFromPrevious, 0, segmentLength);
   }
 
   function crossedCheckpointLine(agent, checkpoint) {
@@ -2782,6 +2809,7 @@ function createFormulaCircuitGame() {
     agent.lastCheckpointFrame = 0;
     agent.lastCheckpointSplit = 0;
     agent.bestCheckpointSplit = 0;
+    agent.bestCheckpointProgress = 0;
     agent.offroadFrames = 0;
     agent.stalledFrames = 0;
     agent.controls = { gas: false, brake: false, left: false, right: false };
@@ -2808,8 +2836,9 @@ function createFormulaCircuitGame() {
     agent.score = agent.laps * CHECKPOINTS.length + agent.checkpoints;
     const checkpointBonus = agent.laps > 0 ? checkpointSpeedBonus(split) : PRE_LAP_CHECKPOINT_BONUS;
     agent.fitness += checkpointBonus;
-    agent.lastProgressFrame = agent.age;
     agent.nextCheckpoint = (agent.nextCheckpoint + 1) % CHECKPOINTS.length;
+    agent.bestCheckpointProgress = 0;
+    agent.lastProgressFrame = agent.age;
 
     if (agent.nextCheckpoint === 1) {
       agent.laps += 1;
@@ -2922,6 +2951,14 @@ function createFormulaCircuitGame() {
       agent.forwardProgress += Math.min(progressDelta, 18);
     } else if (progressDelta < -2) {
       agent.fitness += progressDelta * 3.8;
+    }
+
+    const segmentProgress = checkpointSegmentProgress(agent, nextTrack.progress);
+    if (segmentProgress > agent.bestCheckpointProgress) {
+      const segmentProgressGain = segmentProgress - agent.bestCheckpointProgress;
+      agent.bestCheckpointProgress = segmentProgress;
+      agent.fitness += segmentProgressGain * CHECKPOINT_PROGRESS_FITNESS;
+      agent.lastProgressFrame = agent.age;
     }
 
     agent.offroadFrames = 0;
