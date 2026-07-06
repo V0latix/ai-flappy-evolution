@@ -2510,7 +2510,8 @@ function createFormulaCircuitGame() {
   const SENSOR_RANGE = 190;
   const SENSOR_STEP = 14;
   const START_INDEX = 0;
-  const CHECKPOINT_OVERHANG = 16;
+  const CHECKPOINT_OVERHANG = 24;
+  const CHECKPOINT_TANGENT_SAMPLE = 34;
   const PRE_LAP_CHECKPOINT_BONUS = 3600;
   const POST_LAP_BASE_CHECKPOINT_BONUS = 1800;
   const POST_LAP_TARGET_SPLIT = 150;
@@ -2522,6 +2523,7 @@ function createFormulaCircuitGame() {
   const MONZA_CORNER_SMOOTHING = 0.18;
   const CAMERA_LEAD_X = 360;
   const CAMERA_LEAD_Y = 280;
+  const MANUAL_CAMERA_FRAMES = 240;
   const MONZA_BITMAP_ORIGIN_X = 23;
   const MONZA_BITMAP_ORIGIN_Y = 31;
   const MONZA_BITMAP_SCALE_X = 3.75;
@@ -2663,14 +2665,33 @@ function createFormulaCircuitGame() {
     return best;
   }
 
+  function checkpointGeometry(x, y, angle, halfWidth) {
+    const lateralX = -Math.sin(angle);
+    const lateralY = Math.cos(angle);
+    return {
+      lateralX,
+      lateralY,
+      lineHalfWidth: halfWidth,
+      startX: x - lateralX * halfWidth,
+      startY: y - lateralY * halfWidth,
+      endX: x + lateralX * halfWidth,
+      endY: y + lateralY * halfWidth,
+    };
+  }
+
   function createCheckpoint(point, index) {
     const projected = closestOnTrack(point.x, point.y);
+    const before = pointOnTrack(projected.progress - CHECKPOINT_TANGENT_SAMPLE);
+    const after = pointOnTrack(projected.progress + CHECKPOINT_TANGENT_SAMPLE);
+    const angle = Math.atan2(after.y - before.y, after.x - before.x);
+    const geometry = checkpointGeometry(projected.x, projected.y, angle, HALF_TRACK + CHECKPOINT_OVERHANG);
     return {
       x: projected.x,
       y: projected.y,
       name: point.name,
-      angle: projected.angle,
-      lineHalfWidth: HALF_TRACK + CHECKPOINT_OVERHANG,
+      angle,
+      geometry,
+      lineHalfWidth: geometry.lineHalfWidth,
       isStart: index === START_INDEX,
     };
   }
@@ -2712,8 +2733,8 @@ function createFormulaCircuitGame() {
   function crossedCheckpointLine(agent, checkpoint) {
     const tangentX = Math.cos(checkpoint.angle);
     const tangentY = Math.sin(checkpoint.angle);
-    const lateralX = -tangentY;
-    const lateralY = tangentX;
+    const lateralX = checkpoint.geometry.lateralX;
+    const lateralY = checkpoint.geometry.lateralY;
     const previousDx = agent.previousX - checkpoint.x;
     const previousDy = agent.previousY - checkpoint.y;
     const currentDx = agent.x - checkpoint.x;
@@ -2728,7 +2749,7 @@ function createFormulaCircuitGame() {
     const previousLateral = previousDx * lateralX + previousDy * lateralY;
     const currentLateral = currentDx * lateralX + currentDy * lateralY;
     const crossingLateral = previousLateral + (currentLateral - previousLateral) * ratio;
-    return Math.abs(crossingLateral) <= checkpoint.lineHalfWidth;
+    return Math.abs(crossingLateral) <= checkpoint.geometry.lineHalfWidth;
   }
 
   function resetFormulaAgent(agent) {
@@ -2921,6 +2942,10 @@ function createFormulaCircuitGame() {
 
   function updateCamera(targetWorld, agent) {
     if (!agent) return;
+    if (targetWorld.manualCameraFrames > 0) {
+      targetWorld.manualCameraFrames -= 1;
+      return;
+    }
     const targetX = clamp(agent.x - CAMERA_LEAD_X, 0, FORMULA_WORLD_WIDTH - WIDTH);
     const targetY = clamp(agent.y - CAMERA_LEAD_Y, 0, FORMULA_WORLD_HEIGHT - HEIGHT);
     targetWorld.cameraX += (targetX - targetWorld.cameraX) * 0.16;
@@ -2932,7 +2957,7 @@ function createFormulaCircuitGame() {
     targetCtx.fillRect(0, 0, WIDTH, HEIGHT);
 
     targetCtx.fillStyle = "#66894f";
-    const startY = -((cameraY * 0.28) % 56) - 56;
+    const startY = -(cameraY % 56) - 56;
     for (let y = startY; y < HEIGHT + 80; y += 56) {
       targetCtx.fillRect(0, y, WIDTH, 20);
     }
@@ -2986,14 +3011,11 @@ function createFormulaCircuitGame() {
       const x = checkpoint.x - cameraX;
       const y = checkpoint.y - cameraY;
       if (x < -160 || x > WIDTH + 160 || y < -160 || y > HEIGHT + 160) continue;
-      const lateralX = -Math.sin(checkpoint.angle);
-      const lateralY = Math.cos(checkpoint.angle);
-      const half = checkpoint.lineHalfWidth;
       targetCtx.strokeStyle = index === START_INDEX ? "rgba(255,255,255,0.95)" : "rgba(242,193,78,0.82)";
       targetCtx.lineWidth = index === START_INDEX ? 5 : 3;
       targetCtx.beginPath();
-      targetCtx.moveTo(x - lateralX * half, y - lateralY * half);
-      targetCtx.lineTo(x + lateralX * half, y + lateralY * half);
+      targetCtx.moveTo(checkpoint.geometry.startX - cameraX, checkpoint.geometry.startY - cameraY);
+      targetCtx.lineTo(checkpoint.geometry.endX - cameraX, checkpoint.geometry.endY - cameraY);
       targetCtx.stroke();
     }
 
@@ -3052,7 +3074,7 @@ function createFormulaCircuitGame() {
     targetCtx.textAlign = "left";
   }
 
-  function drawFormulaMiniMap(targetCtx, targetWorld, visibleAgents) {
+  function formulaMiniMapGeometry() {
     const mapWidth = 206;
     const mapHeight = 142;
     const mapX = WIDTH - mapWidth - 18;
@@ -3060,8 +3082,24 @@ function createFormulaCircuitGame() {
     const scale = Math.min((mapWidth - 24) / FORMULA_WORLD_WIDTH, (mapHeight - 24) / FORMULA_WORLD_HEIGHT);
     const offsetX = mapX + 12;
     const offsetY = mapY + 12;
-    const toMapX = (x) => offsetX + x * scale;
-    const toMapY = (y) => offsetY + y * scale;
+    return {
+      mapWidth,
+      mapHeight,
+      mapX,
+      mapY,
+      scale,
+      offsetX,
+      offsetY,
+      toMapX: (x) => offsetX + x * scale,
+      toMapY: (y) => offsetY + y * scale,
+      toWorldX: (x) => (x - offsetX) / scale,
+      toWorldY: (y) => (y - offsetY) / scale,
+    };
+  }
+
+  function drawFormulaMiniMap(targetCtx, targetWorld, visibleAgents) {
+    const miniMap = formulaMiniMapGeometry();
+    const { mapWidth, mapHeight, mapX, mapY, scale, toMapX, toMapY } = miniMap;
 
     targetCtx.fillStyle = "rgba(255,255,255,0.84)";
     targetCtx.fillRect(mapX, mapY, mapWidth, mapHeight);
@@ -3094,6 +3132,24 @@ function createFormulaCircuitGame() {
     targetCtx.fillText("Monza", mapX + 12, mapY + 20);
   }
 
+  function handleFormulaCanvasClick(point, targetWorld) {
+    const miniMap = formulaMiniMapGeometry();
+    const insideMap =
+      point.x >= miniMap.mapX &&
+      point.x <= miniMap.mapX + miniMap.mapWidth &&
+      point.y >= miniMap.mapY &&
+      point.y <= miniMap.mapY + miniMap.mapHeight;
+
+    if (!insideMap) return false;
+
+    const worldX = clamp(miniMap.toWorldX(point.x), 0, FORMULA_WORLD_WIDTH);
+    const worldY = clamp(miniMap.toWorldY(point.y), 0, FORMULA_WORLD_HEIGHT);
+    targetWorld.cameraX = clamp(worldX - WIDTH / 2, 0, FORMULA_WORLD_WIDTH - WIDTH);
+    targetWorld.cameraY = clamp(worldY - HEIGHT / 2, 0, FORMULA_WORLD_HEIGHT - HEIGHT);
+    targetWorld.manualCameraFrames = MANUAL_CAMERA_FRAMES;
+    return true;
+  }
+
   return {
     key: "formula",
     title: "Formula Circuit",
@@ -3123,6 +3179,7 @@ function createFormulaCircuitGame() {
       return {
         cameraX: clamp(TRACK[START_INDEX].x - CAMERA_LEAD_X, 0, FORMULA_WORLD_WIDTH - WIDTH),
         cameraY: clamp(TRACK[START_INDEX].y - CAMERA_LEAD_Y, 0, FORMULA_WORLD_HEIGHT - HEIGHT),
+        manualCameraFrames: 0,
       };
     },
     makeAgent(id, genome) {
@@ -3204,6 +3261,9 @@ function createFormulaCircuitGame() {
     distanceMetric(agent) {
       return agent ? agent.score : 0;
     },
+    handleCanvasClick(point, targetWorld) {
+      return handleFormulaCanvasClick(point, targetWorld);
+    },
     draw(targetCtx, targetWorld, visibleAgents, mode, currentScore) {
       const ordered = [...visibleAgents].sort((a, b) => b.fitness - a.fitness);
       updateCamera(targetWorld, ordered[0]);
@@ -3241,6 +3301,18 @@ function drawCrashOverlay(targetCtx, mode, agent, message) {
   targetCtx.font = "600 16px system-ui";
   targetCtx.fillText(message, WIDTH / 2, HEIGHT / 2 + 22);
   targetCtx.textAlign = "left";
+}
+
+function handleCanvasClick(event) {
+  if (!game.handleCanvasClick || !world) return;
+  const rect = gameCanvas.getBoundingClientRect();
+  const canvasWidth = gameCanvas.width || WIDTH;
+  const canvasHeight = gameCanvas.height || HEIGHT;
+  const point = {
+    x: ((event.clientX - rect.left) / rect.width) * canvasWidth,
+    y: ((event.clientY - rect.top) / rect.height) * canvasHeight,
+  };
+  if (game.handleCanvasClick(point, world) && event.preventDefault) event.preventDefault();
 }
 
 ui.toggleRun.addEventListener("click", () => {
@@ -3283,6 +3355,7 @@ ui.preset.addEventListener("change", () => applyPreset(ui.preset.value));
 ui.saveChampion.addEventListener("click", saveChampion);
 ui.loadChampion.addEventListener("click", loadChampion);
 ui.clearChampion.addEventListener("click", clearChampion);
+gameCanvas.addEventListener("click", handleCanvasClick);
 window.addEventListener("keydown", handleKeydown);
 window.addEventListener("keyup", handleKeyup);
 
