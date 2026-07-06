@@ -365,7 +365,10 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /targetWorld\.cameraY/);
   assert.match(script, /function drawFormulaMiniMap/);
   assert.match(script, /function crossedCheckpointLine/);
-  assert.match(script, /lineHalfWidth: TRACK_WIDTH \* 0\.82/);
+  assert.match(script, /function createCheckpoint/);
+  assert.match(script, /const CHECKPOINT_OVERHANG = 16/);
+  assert.match(script, /lineHalfWidth: HALF_TRACK \+ CHECKPOINT_OVERHANG/);
+  assert.match(script, /const projected = closestOnTrack\(point\.x, point\.y\)/);
   assert.match(script, /const POST_LAP_TARGET_SPLIT = 150/);
   assert.match(script, /function checkpointSpeedBonus/);
   assert.match(script, /agent\.lastCheckpointFrame = 0/);

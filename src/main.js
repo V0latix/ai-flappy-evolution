@@ -2510,6 +2510,7 @@ function createFormulaCircuitGame() {
   const SENSOR_RANGE = 190;
   const SENSOR_STEP = 14;
   const START_INDEX = 0;
+  const CHECKPOINT_OVERHANG = 16;
   const PRE_LAP_CHECKPOINT_BONUS = 3600;
   const POST_LAP_BASE_CHECKPOINT_BONUS = 1800;
   const POST_LAP_TARGET_SPLIT = 150;
@@ -2605,14 +2606,7 @@ function createFormulaCircuitGame() {
     runningLength += segment.length;
   }
   const TRACK_LENGTH = runningLength;
-  const CHECKPOINTS = MONZA_CENTERLINE.map((point, index) => ({
-    x: point.x,
-    y: point.y,
-    name: point.name,
-    angle: closestOnTrack(point.x, point.y).angle,
-    lineHalfWidth: TRACK_WIDTH * 0.82,
-    isStart: index === START_INDEX,
-  }));
+  const CHECKPOINTS = MONZA_CENTERLINE.map(createCheckpoint);
 
   function normalizeAngle(angle) {
     let next = angle;
@@ -2643,6 +2637,18 @@ function createFormulaCircuitGame() {
       }
     }
     return best;
+  }
+
+  function createCheckpoint(point, index) {
+    const projected = closestOnTrack(point.x, point.y);
+    return {
+      x: projected.x,
+      y: projected.y,
+      name: point.name,
+      angle: projected.angle,
+      lineHalfWidth: HALF_TRACK + CHECKPOINT_OVERHANG,
+      isStart: index === START_INDEX,
+    };
   }
 
   function pointOnTrack(progress) {
