@@ -23,29 +23,33 @@ export const MONZA_SECTION_ORDER = [
 // coordinates. It is deliberately normalized so the same circuit can be used
 // by a scrolling world, a mini-map, and pure geometry tests without an asset.
 export const MONZA_NORMALIZED_SECTIONS = [
-  { name: "Rettifilo", points: [[0.90, 0.79], [0.76, 0.78], [0.63, 0.78], [0.49, 0.78]] },
+  // This hand-authored centreline follows the current GP layout as shown on
+  // the FIA circuit map: the pit straight rises on the west side, Curva Grande
+  // sweeps across the north, the Lesmos sit to the east, and Ascari and
+  // Alboreto close the southern half of the lap.
+  { name: "Rettifilo", points: [[0.10, 0.90], [0.10, 0.82], [0.10, 0.74], [0.10, 0.68]] },
   {
     name: "Variante del Rettifilo",
-    points: [[0.38, 0.78], [0.335, 0.73], [0.285, 0.73], [0.245, 0.79], [0.205, 0.80]],
+    points: [[0.13, 0.65], [0.27, 0.65], [0.30, 0.61], [0.27, 0.57], [0.29, 0.54]],
   },
   {
     name: "Curva Grande",
-    points: [[0.15, 0.78], [0.11, 0.72], [0.1, 0.61], [0.095, 0.48], [0.09, 0.36]],
+    points: [[0.295, 0.535], [0.28, 0.49], [0.28, 0.42], [0.30, 0.35], [0.36, 0.29], [0.45, 0.25], [0.55, 0.24]],
   },
   {
     name: "Variante della Roggia",
-    points: [[0.075, 0.30], [0.105, 0.25], [0.065, 0.20], [0.055, 0.14], [0.095, 0.105]],
+    points: [[0.58, 0.24], [0.62, 0.20], [0.68, 0.20], [0.72, 0.24], [0.77, 0.24]],
   },
-  { name: "Lesmo 1", points: [[0.15, 0.09], [0.22, 0.10], [0.25, 0.14]] },
-  { name: "Lesmo 2", points: [[0.29, 0.22], [0.34, 0.29], [0.39, 0.34]] },
-  { name: "Serraglio", points: [[0.46, 0.39], [0.53, 0.415], [0.60, 0.43], [0.66, 0.435]] },
+  { name: "Lesmo 1", points: [[0.78, 0.24], [0.83, 0.26], [0.87, 0.31], [0.87, 0.36]] },
+  { name: "Lesmo 2", points: [[0.87, 0.38], [0.86, 0.42], [0.83, 0.46], [0.78, 0.49]] },
+  { name: "Serraglio", points: [[0.75, 0.51], [0.70, 0.55], [0.63, 0.60], [0.56, 0.66], [0.50, 0.70]] },
   {
     name: "Variante Ascari",
-    points: [[0.70, 0.42], [0.75, 0.45], [0.72, 0.50], [0.77, 0.535], [0.84, 0.525], [0.89, 0.53]],
+    points: [[0.47, 0.74], [0.43, 0.79], [0.37, 0.80], [0.33, 0.76], [0.35, 0.71], [0.30, 0.69]],
   },
-  { name: "Opposite straight", points: [[0.94, 0.545], [0.97, 0.57], [0.97, 0.62]] },
-  { name: "Curva Alboreto", points: [[0.95, 0.68], [0.91, 0.735], [0.86, 0.755], [0.82, 0.755]] },
-  { name: "Start finish", points: [[0.82, 0.78]] },
+  { name: "Opposite straight", points: [[0.27, 0.70], [0.23, 0.72], [0.18, 0.77], [0.15, 0.83]] },
+  { name: "Curva Alboreto", points: [[0.13, 0.86], [0.12, 0.90], [0.14, 0.94], [0.17, 0.96]] },
+  { name: "Start finish", points: [[0.12, 0.96], [0.10, 0.93]] },
 ];
 
 function scaledPoint([x, y], section, width, worldWidth, worldHeight, paddingX, paddingY) {

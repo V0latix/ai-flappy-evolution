@@ -125,3 +125,24 @@ test("the normalized centerline has no non-adjacent segment intersections", () =
     }
   }
 });
+
+test("the circuit follows Monza's official north-east silhouette", () => {
+  const track = createFormulaTrack({ worldWidth: 1000, worldHeight: 1000, paddingX: 0, paddingY: 0 });
+  const section = (name) => track.sections.find((candidate) => candidate.name === name).centerline;
+  const midpoint = (points) => points[Math.floor(points.length / 2)];
+  const rettifilo = section("Rettifilo");
+  const curvaGrande = section("Curva Grande");
+  const roggia = section("Variante della Roggia");
+  const lesmo2 = section("Lesmo 2");
+  const serraglio = section("Serraglio");
+  const ascari = section("Variante Ascari");
+  const alboreto = section("Curva Alboreto");
+
+  assert.ok(rettifilo.every((point) => point.x < 250), "the start straight should run up the left edge");
+  assert.ok(curvaGrande.at(-1).x - curvaGrande[0].x > 250, "Curva Grande should sweep from north to east");
+  assert.ok(midpoint(roggia).y < curvaGrande.at(-1).y, "Roggia should be the northern chicane");
+  assert.ok(lesmo2.at(-1).y > lesmo2[0].y, "the second Lesmo should feed the southern descent");
+  assert.ok(serraglio.at(-1).x < serraglio[0].x && serraglio.at(-1).y > serraglio[0].y, "Serraglio should descend diagonally to Ascari");
+  assert.ok(Math.max(...ascari.map((point) => point.y)) > 700, "Ascari should sit on the south side of the layout");
+  assert.ok(alboreto[0].x < 300 && alboreto.at(-1).x < 250, "Alboreto should close the lower-left loop");
+});
