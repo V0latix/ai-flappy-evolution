@@ -344,6 +344,7 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /outputLabels: \["gas", "brake", "left", "right"\]/);
   assert.match(script, /const FORMULA_WORLD_WIDTH = 3600/);
   assert.match(script, /const FORMULA_WORLD_HEIGHT = 2450/);
+  assert.match(script, /const SENSOR_RANGE = Math\.hypot\(FORMULA_WORLD_WIDTH, FORMULA_WORLD_HEIGHT\)/);
   assert.match(script, /const FORMULA_SENSOR_OFFSETS = \[/);
   assert.match(script, /function sensorHitDistance/);
   assert.match(script, /function drawFormulaSensors/);

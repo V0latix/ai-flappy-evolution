@@ -2503,7 +2503,7 @@ function createFormulaCircuitGame() {
   const TURN_FORCE = 0.044;
   const GRIP = 0.16;
   const MAX_AGE = 6200;
-  const SENSOR_RANGE = 190;
+  const SENSOR_RANGE = Math.hypot(FORMULA_WORLD_WIDTH, FORMULA_WORLD_HEIGHT);
   const SENSOR_STEP = 14;
   const FORMULA_SENSOR_OFFSETS = [
     -Math.PI / 2,

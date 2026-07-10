@@ -85,7 +85,8 @@ Grande, Variante della Roggia, Lesmo 1 and 2, Variante Ascari, the opposite
 straight, and Curva Alboreto back onto the main straight. Every specimen drives
 at the same time, but cars are ghosts and do not collide with each other. The
 network observes only forward speed and seven track-vision rays spanning the
-180 degrees in front of the car. The visible rays end at the first track edge.
+180 degrees in front of the car. The visible rays reach the first track edge at
+any distance across the circuit.
 Its four outputs are combinable gas, brake, left, and right commands. The Monza
 layout is a hand-authored arcade approximation covering the
 main straight, Rettifilo, Curva Grande, Roggia, Lesmo, Serraglio, Ascari, and
