@@ -330,7 +330,7 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /inputs: 6/);
   assert.match(script, /inputs: 8/);
   assert.match(script, /inputs: 14/);
-  assert.match(script, /inputs: 12/);
+  assert.match(script, /key: "formula"[\s\S]*?inputs: 8/);
   assert.match(script, /LUNAR_INPUT_LABELS/);
   assert.match(script, /HILL_INPUT_LABELS/);
   assert.match(script, /FORMULA_INPUT_LABELS/);
@@ -344,6 +344,11 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /outputLabels: \["gas", "brake", "left", "right"\]/);
   assert.match(script, /const FORMULA_WORLD_WIDTH = 3600/);
   assert.match(script, /const FORMULA_WORLD_HEIGHT = 2450/);
+  assert.match(script, /const FORMULA_SENSOR_OFFSETS = \[/);
+  assert.match(script, /function sensorHitDistance/);
+  assert.match(script, /function drawFormulaSensors/);
+  assert.match(script, /#2ee7ff/);
+  assert.match(script, /const focusAgent = ordered\.find\(\(agent\) => agent\.alive\) \|\| ordered\[0\]/);
   assert.match(script, /import \{ createFormulaTrack \} from "\.\/formula-track\.js"/);
   assert.match(script, /const FORMULA_TRACK = createFormulaTrack\(\{/);
   assert.match(script, /const TRACK = FORMULA_TRACK\.centerline/);
@@ -542,8 +547,8 @@ test("static app includes every primary control and asset reference", async () =
   assert.doesNotMatch(script, /agent\.pendingThrust = false;\n      agent\.pendingLeft = false;\n      agent\.pendingRight = false;/);
   assert.match(script, /next gap/);
   assert.match(script, /pad dx/);
-  assert.match(script, /track L/);
-  assert.match(script, /curve/);
+  assert.match(script, /vision -90/);
+  assert.match(script, /vision 90/);
 });
 
 test("module boots, draws AI network labels, and reports initial training state", async () => {
@@ -696,20 +701,19 @@ test("game picker switches to Formula Circuit with full-population cars and netw
 
   const networkCalls = element(harness, "network").getContext().calls;
   const labels = networkCalls.filter((call) => call.type === "fillText").map((call) => call.text);
-  assert.deepEqual(labels.slice(0, 12), [
+  assert.deepEqual(labels.slice(0, 8), [
     "speed",
-    "slide",
-    "heading",
-    "spin",
-    "offroad",
-    "checkpoint x",
-    "checkpoint y",
-    "curve",
-    "track L",
-    "track FL",
-    "track F",
-    "track FR",
+    "vision -90",
+    "vision -60",
+    "vision -30",
+    "vision 0",
+    "vision 30",
+    "vision 60",
+    "vision 90",
   ]);
+  assert.equal(labels.includes("track L"), false);
+  assert.equal(labels.includes("track F"), false);
+  assert.equal(labels.includes("checkpoint x"), false);
   assert.equal(labels.includes("gas"), true);
   assert.equal(labels.includes("brake"), true);
   assert.equal(labels.includes("left"), true);
@@ -978,14 +982,33 @@ test("Formula Circuit champions are saved under the Formula key with compatible 
   const saved = JSON.parse(harness.storage.getItem(formulaChampionStorageKey));
 
   assert.equal(saved.game, "formula");
-  assert.equal(saved.genome.length, 123);
-  assert.equal(saved.inputs, 12);
+  assert.equal(saved.genome.length, 95);
+  assert.equal(saved.inputs, 8);
   assert.equal(saved.hidden, 7);
   assert.equal(saved.outputs, 4);
 
   element(harness, "loadChampion").click();
   harness.runFrame();
   assert.match(element(harness, "championStatus").textContent, /Formula Circuit champion loaded/);
+});
+
+test("Formula Circuit rejects champions saved with the previous five-input network", async () => {
+  const harness = await loadHarness();
+
+  element(harness, "gameFormula").click();
+  harness.runFrame();
+  harness.storage.setItem(formulaChampionStorageKey, JSON.stringify({
+    game: "formula",
+    genome: Array.from({ length: 74 }, () => 0),
+    inputs: 5,
+    hidden: 7,
+    outputs: 4,
+  }));
+
+  element(harness, "loadChampion").click();
+  harness.runFrame();
+
+  assert.match(element(harness, "championStatus").textContent, /incompatible/);
 });
 
 test("legacy champion storage key remains loadable after project rename", async () => {

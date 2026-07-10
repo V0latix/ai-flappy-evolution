@@ -167,9 +167,10 @@
               Variante Ascari, puis Curva Alboreto.
             </p>
             <p>
-              Le reseau observe la vitesse, la derive, l'angle avec la trajectoire, la prochaine
-              cible de checkpoint, la courbure proche et plusieurs capteurs de piste devant la
-              voiture. Il renvoie quatre commandes combinables : gaz, brake, gauche et droite.
+              Le reseau observe uniquement la vitesse dans l'axe de la voiture et sept lignes de
+              vision couvrant les 180 degres devant elle. Les rayons affiches dans la simulation
+              s'arretent au premier bord de piste. Il renvoie quatre commandes combinables : gaz,
+              brake, gauche et droite.
             </p>
             <p>
               Toute la population roule en meme temps. Les voitures sont des fantomes entre elles :

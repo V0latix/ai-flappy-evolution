@@ -26,8 +26,9 @@ The app currently runs entirely in the browser and includes:
   wheel contact, terrain slope, upcoming fuel, and coins, plus gas/brake outputs
 - Hill Climb coins, fuel cans, flips, and a fixed original countryside terrain
   with increasing difficulty
-- Formula Circuit with twelve inputs for speed, slide, heading, checkpoint
-  targeting, curve reading, and track sensors, plus gas/brake/left/right outputs
+- Formula Circuit with eight inputs for forward speed and seven 180-degree track
+  vision sensors,
+  plus gas/brake/left/right outputs
 - Formula Circuit runs the full AI population at once on a large scrolling
   top-down Monza layout, with ghost cars and checkpoint scoring
 - Human play mode with the space bar for Flappy Bird and space plus arrows/A/D
@@ -83,10 +84,10 @@ the current Monza Grand Prix layout: Rettifilo, Variante del Rettifilo, Curva
 Grande, Variante della Roggia, Lesmo 1 and 2, Variante Ascari, the opposite
 straight, and Curva Alboreto back onto the main straight. Every specimen drives
 at the same time, but cars are ghosts and do not collide with each other. The
-network observes forward speed, side slip, heading error, spin, off-track state,
-the next checkpoint in car-local coordinates, nearby curve direction, and four
-track sensors. Its four outputs are combinable gas, brake, left, and right
-commands. The Monza layout is a hand-authored arcade approximation covering the
+network observes only forward speed and seven track-vision rays spanning the
+180 degrees in front of the car. The visible rays end at the first track edge.
+Its four outputs are combinable gas, brake, left, and right commands. The Monza
+layout is a hand-authored arcade approximation covering the
 main straight, Rettifilo, Curva Grande, Roggia, Lesmo, Serraglio, Ascari, and
 Alboreto/Parabolica sequence. The three chicanes are
 narrower than fast sections, so cars must drive through the alternating turns

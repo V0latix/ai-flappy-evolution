@@ -100,17 +100,13 @@ const HILL_INPUT_LABELS = [
 ];
 const FORMULA_INPUT_LABELS = [
   "speed",
-  "slide",
-  "heading",
-  "spin",
-  "offroad",
-  "checkpoint x",
-  "checkpoint y",
-  "curve",
-  "track L",
-  "track FL",
-  "track F",
-  "track FR",
+  "vision -90",
+  "vision -60",
+  "vision -30",
+  "vision 0",
+  "vision 30",
+  "vision 60",
+  "vision 90",
 ];
 
 const games = {
@@ -2509,6 +2505,15 @@ function createFormulaCircuitGame() {
   const MAX_AGE = 6200;
   const SENSOR_RANGE = 190;
   const SENSOR_STEP = 14;
+  const FORMULA_SENSOR_OFFSETS = [
+    -Math.PI / 2,
+    -Math.PI / 3,
+    -Math.PI / 6,
+    0,
+    Math.PI / 6,
+    Math.PI / 3,
+    Math.PI / 2,
+  ];
   const START_INDEX = 0;
   const CHECKPOINT_OVERHANG = 24;
   const PRE_LAP_CHECKPOINT_BONUS = 3600;
@@ -2566,14 +2571,18 @@ function createFormulaCircuitGame() {
     return closest.distance <= closest.width / 2;
   }
 
-  function sensorValue(agent, offset) {
+  function sensorHitDistance(agent, offset) {
     const angle = agent.angle + offset;
     for (let distance = SENSOR_STEP; distance <= SENSOR_RANGE; distance += SENSOR_STEP) {
       const x = agent.x + Math.cos(angle) * distance;
       const y = agent.y + Math.sin(angle) * distance;
-      if (!isOnTrack(x, y)) return distance / SENSOR_RANGE;
+      if (!isOnTrack(x, y)) return distance;
     }
-    return 1;
+    return SENSOR_RANGE;
+  }
+
+  function sensorValue(agent, offset) {
+    return sensorHitDistance(agent, offset) / SENSOR_RANGE;
   }
 
   function trackDelta(current, previous) {
@@ -2704,34 +2713,13 @@ function createFormulaCircuitGame() {
   }
 
   function inputsFor(agent) {
-    const track = closestOnTrack(agent.x, agent.y);
-    const next = checkpointTarget(agent);
     const forwardX = Math.cos(agent.angle);
     const forwardY = Math.sin(agent.angle);
-    const rightX = -forwardY;
-    const rightY = forwardX;
-    const toCheckpointX = next.x - agent.x;
-    const toCheckpointY = next.y - agent.y;
-    const localX = (toCheckpointX * forwardX + toCheckpointY * forwardY) / 920;
-    const localY = (toCheckpointX * rightX + toCheckpointY * rightY) / 620;
     const forwardSpeed = agent.vx * forwardX + agent.vy * forwardY;
-    const sideSpeed = agent.vx * rightX + agent.vy * rightY;
-    const ahead = pointOnTrack(track.progress + 230);
-    const curve = normalizeAngle(ahead.angle - track.angle) / Math.PI;
 
     return [
       clamp(forwardSpeed / MAX_SPEED, -1, 1),
-      clamp(sideSpeed / MAX_SPEED, -1, 1),
-      normalizeAngle(track.angle - agent.angle) / Math.PI,
-      clamp(agent.angularVelocity / 0.16, -1, 1),
-      track.distance > track.width / 2 ? 1 : 0,
-      clamp(localX, -1, 1),
-      clamp(localY, -1, 1),
-      clamp(curve * 2.2, -1, 1),
-      sensorValue(agent, -1.2),
-      sensorValue(agent, -0.58),
-      sensorValue(agent, 0),
-      sensorValue(agent, 0.58),
+      ...FORMULA_SENSOR_OFFSETS.map((offset) => sensorValue(agent, offset)),
     ];
   }
 
@@ -2951,6 +2939,28 @@ function createFormulaCircuitGame() {
     targetCtx.restore();
   }
 
+  function drawFormulaSensors(targetCtx, agent, cameraX, cameraY) {
+    if (!agent?.alive) return;
+    targetCtx.save();
+    targetCtx.strokeStyle = "#2ee7ff";
+    targetCtx.fillStyle = "#2ee7ff";
+    targetCtx.lineWidth = 2.5;
+    for (const offset of FORMULA_SENSOR_OFFSETS) {
+      const angle = agent.angle + offset;
+      const distance = sensorHitDistance(agent, offset);
+      const endX = agent.x + Math.cos(angle) * distance - cameraX;
+      const endY = agent.y + Math.sin(angle) * distance - cameraY;
+      targetCtx.beginPath();
+      targetCtx.moveTo(agent.x - cameraX, agent.y - cameraY);
+      targetCtx.lineTo(endX, endY);
+      targetCtx.stroke();
+      targetCtx.beginPath();
+      targetCtx.arc(endX, endY, 2.5, 0, Math.PI * 2);
+      targetCtx.fill();
+    }
+    targetCtx.restore();
+  }
+
   function drawFormulaHud(targetCtx, currentScore) {
     targetCtx.fillStyle = "rgba(255,255,255,0.84)";
     targetCtx.fillRect(WIDTH / 2 - 82, 18, 164, 42);
@@ -3086,7 +3096,7 @@ function createFormulaCircuitGame() {
     speedLabel: "Race speed",
     populationLabel: "Cars",
     leaderFitnessLabel: "Lead car",
-    inputs: 12,
+    inputs: 8,
     hidden: DEFAULT_HIDDEN,
     outputs: 4,
     inputLabels: FORMULA_INPUT_LABELS,
@@ -3189,12 +3199,14 @@ function createFormulaCircuitGame() {
     },
     draw(targetCtx, targetWorld, visibleAgents, mode, currentScore) {
       const ordered = [...visibleAgents].sort((a, b) => b.fitness - a.fitness);
-      updateCamera(targetWorld, ordered[0]);
+      const focusAgent = ordered.find((agent) => agent.alive) || ordered[0];
+      updateCamera(targetWorld, focusAgent);
       drawFormulaBackground(targetCtx, targetWorld.cameraX, targetWorld.cameraY);
       drawTrack(targetCtx, targetWorld.cameraX, targetWorld.cameraY);
       for (const [index, agent] of ordered.entries()) {
         drawFormulaCar(targetCtx, agent, index, mode, targetWorld.cameraX, targetWorld.cameraY);
       }
+      drawFormulaSensors(targetCtx, focusAgent, targetWorld.cameraX, targetWorld.cameraY);
       drawScoreBadge(targetCtx, currentScore);
       drawFormulaHud(targetCtx, currentScore);
       drawFormulaMiniMap(targetCtx, targetWorld, ordered);
