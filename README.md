@@ -96,9 +96,12 @@ instead of cutting straight across. Ordered checkpoints cover every named
 section, including all three chicanes. Before a first completed lap, positive
 fitness mostly comes from crossing checkpoint lines in order. After a car has
 completed a lap, fast checkpoint splits and short lap times are weighted much
-more heavily. Local centerline loops do not accumulate fitness, and leaving the
-track, reversing, or failing to progress ends the attempt. Once a car completes
-a lap, Formula Circuit's best score is the fastest completed lap time.
+more heavily. Forward speed along the local track direction also contributes to
+fitness, but speed while reversing or leaving the track does not. A specimen is
+evaluated for at most three completed laps. Local centerline loops do not
+accumulate fitness, and leaving the track, reversing, or failing to progress
+ends the attempt. Once a car completes a lap, Formula Circuit's best score is
+the fastest completed lap time.
 
 ## Next Game Ideas
 

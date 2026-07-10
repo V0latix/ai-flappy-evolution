@@ -2503,6 +2503,8 @@ function createFormulaCircuitGame() {
   const TURN_FORCE = 0.044;
   const GRIP = 0.16;
   const MAX_AGE = 6200;
+  const MAX_FORMULA_LAPS = 3;
+  const FORMULA_SPEED_FITNESS = 0.5;
   const SENSOR_RANGE = Math.hypot(FORMULA_WORLD_WIDTH, FORMULA_WORLD_HEIGHT);
   const SENSOR_STEP = 14;
   const FORMULA_SENSOR_OFFSETS = [
@@ -2704,6 +2706,9 @@ function createFormulaCircuitGame() {
       agent.lapStartFrame = agent.age;
       const lapSpeedBonus = Math.max(0, TARGET_LAP_TIME - agent.lastLapTime) * LAP_SPEED_MULTIPLIER;
       agent.fitness += LAP_COMPLETION_BONUS + lapSpeedBonus;
+      if (agent.laps >= MAX_FORMULA_LAPS) {
+        agent.alive = false;
+      }
     }
   }
 
@@ -2783,8 +2788,10 @@ function createFormulaCircuitGame() {
 
     const progressDelta = trackDelta(nextTrack.progress, agent.trackProgress);
     agent.trackProgress = nextTrack.progress;
+    const onTrackSpeed = Math.max(0, agent.vx * Math.cos(nextTrack.angle) + agent.vy * Math.sin(nextTrack.angle));
     if (progressDelta > 0.05) {
       agent.forwardProgress += Math.min(progressDelta, 18);
+      agent.fitness += onTrackSpeed * FORMULA_SPEED_FITNESS;
     } else if (progressDelta < -2) {
       agent.fitness += progressDelta * 3.8;
     }
@@ -2800,6 +2807,7 @@ function createFormulaCircuitGame() {
     agent.offroadFrames = 0;
 
     updateCheckpoint(agent);
+    if (!agent.alive) return;
     agent.stalledFrames = agent.age - agent.lastProgressFrame;
     agent.score = agent.laps * CHECKPOINTS.length + agent.checkpoints;
 
