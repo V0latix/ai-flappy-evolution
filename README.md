@@ -117,15 +117,17 @@ destruction, five inventory ratios, five living-troop ratios, and three channels
 for each of eight spatial sectors. Its outputs score the five troop types, select
 a perimeter position, and open or close the deployment gate.
 
-Every specimen attacks three fixed reconstructed references sequentially:
-`farm-111`, `war-26`, and `defence-104`. The full composition is restored for
-every base. Fitness is the strict mean of the three destruction percentages;
+Every specimen attacks three fixed orthogonal arcade reconstructions based on
+the reference layouts, sequentially: `farm-111`, `war-26`, and `defence-104`.
+The full composition is restored for every base.
+Fitness uses the strict mean destruction percentage across the three bases;
 time, remaining troops, walls, bombs, and stars never add shaping rewards. Each
-reference contains 22 buildings, 50 walls, and 2 bombs. The building roster is:
-1 Town Hall, 1 Clan Castle, 2 Army Camps, 1 Barracks, 1 Laboratory, 3 Gold Mines,
-3 Elixir Collectors, 2 Gold Storages, 2 Elixir Storages, 2 Builder Huts, 2
-Cannons, 1 Archer Tower, and 1 Mortar. The Clan Castle is empty; spells, heroes,
-and reinforcements are outside this arcade model.
+reference contains 22 buildings,
+50 walls, and 2 bombs. The building roster is: 1 Town Hall, 1 Clan Castle, 2 Army
+Camps, 1 Barracks, 1 Laboratory, 3 Gold Mines, 3 Elixir Collectors, 2 Gold
+Storages, 2 Elixir Storages, 2 Builder Huts, 2 Cannons, 1 Archer Tower, and 1
+Mortar. The Clan Castle is empty; spells, heroes, and reinforcements are outside
+this arcade model.
 
 Destruction divides destroyed buildings by the initial building count captured
 when that raid begins. The current references therefore use 22 as their
