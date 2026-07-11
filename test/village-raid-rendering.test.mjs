@@ -104,6 +104,20 @@ test("troops have five distinct visual identities and a compact key", () => {
   );
 });
 
+test("an injured troop draws a proportional health bar", () => {
+  const ctx = recordingContext();
+  drawRaidTroop(ctx, { ...troopFixture("archer"), hp: 25 }, 0, 10);
+
+  assert.deepEqual(
+    ctx.calls.find((call) => call.type === "fillRect" && call.fillStyle === "#20262d"),
+    { type: "fillRect", x: 55.5, y: 63, width: 9, height: 3, fillStyle: "#20262d" },
+  );
+  assert.deepEqual(
+    ctx.calls.find((call) => call.type === "fillRect" && call.fillStyle === "#48c774"),
+    { type: "fillRect", x: 55.5, y: 63, width: 4.5, height: 3, fillStyle: "#48c774" },
+  );
+});
+
 function assertGeometryWithin(calls, bounds, label) {
   const transformIndex = calls.findIndex((call) => call.type === "translate");
   const worldCalls = transformIndex < 0 ? calls : calls.slice(0, transformIndex);
@@ -152,6 +166,7 @@ function troopFixture(type) {
 
 function recordingContext() {
   const calls = [];
+  let currentFillStyle = "";
   const ctx = { calls };
   for (const method of [
     "save", "restore", "translate", "rotate", "beginPath", "closePath", "moveTo",
@@ -169,15 +184,18 @@ function recordingContext() {
         strokeRect: ["x", "y", "width", "height"],
         fillText: ["text", "x", "y"],
       }[method] ?? [];
-      calls.push(Object.fromEntries([
+      const call = Object.fromEntries([
         ["type", method],
         ...args.map((value, index) => [names[index] ?? `arg${index}`, value]),
-      ]));
+      ]);
+      if (method === "fillRect") call.fillStyle = currentFillStyle;
+      calls.push(call);
     };
   }
   for (const property of ["fillStyle", "strokeStyle"]) {
     Object.defineProperty(ctx, property, {
       set(value) {
+        if (property === "fillStyle") currentFillStyle = value;
         calls.push({ type: property, value });
       },
     });
