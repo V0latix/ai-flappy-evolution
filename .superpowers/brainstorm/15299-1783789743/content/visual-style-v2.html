@@ -1,0 +1,37 @@
+<style>
+  .stage{max-width:920px;margin:0 auto;background:linear-gradient(145deg,#aad975,#76b751);border:2px solid #27313a;border-radius:18px;padding:28px;box-shadow:8px 8px 0 #27313a;position:relative;overflow:hidden}
+  .stage:before{content:"";position:absolute;inset:0;opacity:.18;background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);background-size:24px 24px}
+  .buildings{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:28px;align-items:end;min-height:310px}
+  .sample{text-align:center;color:#263126;font-weight:800}
+  .footprint{margin:0 auto 12px;position:relative;display:grid;place-items:center;border:3px solid #27272a;box-shadow:5px 5px 0 #27272a;color:white;text-shadow:0 2px 2px #0008}
+  .four{width:112px;height:112px;background:linear-gradient(135deg,#ffb000 0 50%,#9b5b25 50%)}
+  .three{width:84px;height:84px}
+  .five{width:140px;height:140px}
+  .cannon{background:#b84d3d;border-radius:7px}
+  .cannon:before{content:"";width:42px;height:42px;border:8px solid #262c33;border-radius:50%;background:#5e6875}
+  .cannon:after{content:"";position:absolute;width:46px;height:14px;background:#262c33;transform:translate(18px,-17px) rotate(-24deg);border-radius:5px}
+  .tower{background:#8568d8}
+  .tower:before{content:"";width:44px;height:58px;background:linear-gradient(90deg,#72513b 0 25%,#c48b50 25% 75%,#72513b 75%);clip-path:polygon(18% 100%,5% 25%,50% 0,95% 25%,82% 100%)}
+  .camp{background:#d8a65d}
+  .camp:before{content:"";width:96px;height:74px;background:repeating-linear-gradient(45deg,#f4d78e 0 10px,#83552d 10px 16px);clip-path:polygon(50% 0,100% 80%,85% 100%,15% 100%,0 80%)}
+  .grid-badge{position:absolute;top:7px;left:7px;padding:4px 7px;border:2px solid #27272a;background:#fff;color:#27272a;text-shadow:none;font-size:11px}
+  .type{display:block;font-size:15px}.note{display:block;margin-top:5px;color:#43533d;font-size:12px;font-weight:700}
+  .rules{position:relative;margin-top:24px;display:flex;gap:12px;flex-wrap:wrap}.rule{background:#fffef0;border:2px solid #27272a;border-radius:999px;padding:8px 12px;font-weight:800;color:#30382e}
+  .confirm{margin:26px auto 0;max-width:920px;cursor:pointer;border:2px solid #d8dee8;border-radius:14px;padding:16px;background:white}.confirm.selected{border-color:#4f46e5;box-shadow:0 0 0 3px #4f46e52b}
+  @media(max-width:850px){.buildings{grid-template-columns:repeat(2,1fr)}.stage{box-shadow:5px 5px 0 #27313a}.five{width:120px;height:120px}}
+</style>
+
+<h2>Style C corrigé — l’emprise réelle reste lisible</h2>
+<p class="subtitle">La texture donne l’identité, mais le contour extérieur montre toujours exactement la forme occupée sur la grille.</p>
+
+<div class="stage">
+  <div class="buildings">
+    <div class="sample"><div class="footprint four"><span class="grid-badge">4×4</span>HDV</div><span class="type">Hôtel de ville</span><span class="note">Carré, toit dans l’emprise</span></div>
+    <div class="sample"><div class="footprint three cannon"><span class="grid-badge">3×3</span></div><span class="type">Canon</span><span class="note">Base strictement carrée</span></div>
+    <div class="sample"><div class="footprint three tower"><span class="grid-badge">3×3</span></div><span class="type">Tour d’archers</span><span class="note">Tour centrée dans le carré</span></div>
+    <div class="sample"><div class="footprint five camp"><span class="grid-badge">5×5</span></div><span class="type">Camp militaire</span><span class="note">Grande emprise conservée</span></div>
+  </div>
+  <div class="rules"><span class="rule">Contour = collision</span><span class="rule">Texture = identité</span><span class="rule">Barre de vie au-dessus</span><span class="rule">Aucun asset officiel</span></div>
+</div>
+
+<div class="confirm" data-choice="approved-footprints" onclick="toggleSelect(this)"><strong>✓ Valider cette règle visuelle</strong><br><span>Les 13 types de bâtiments recevront chacun une texture originale, sans modifier leur forme ni leur taille de grille.</span></div>
