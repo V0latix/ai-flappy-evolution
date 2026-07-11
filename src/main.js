@@ -1,4 +1,13 @@
 import { createFormulaTrack } from "./formula-track.js";
+import {
+  calculateFormulaProgressFitness,
+  consumeSpeedPhaseTransition,
+  createFormulaTrainingSession,
+  FORMULA_FITNESS_PHASE_DISTANCE,
+  FORMULA_FITNESS_PHASE_SPEED,
+  recordFirstTripleLapGenome,
+  resetFormulaTrainingSession,
+} from "./formula-training.js";
 
 const gameCanvas = document.querySelector("#game");
 const ctx = gameCanvas.getContext("2d");
@@ -108,6 +117,8 @@ const FORMULA_INPUT_LABELS = [
   "vision 60",
   "vision 90",
 ];
+
+let formulaTrainingSession = createFormulaTrainingSession();
 
 const games = {
   pipe: createPipeGame(),
@@ -270,6 +281,27 @@ function evolve() {
 
   const sorted = [...agents].sort((a, b) => b.fitness - a.fitness);
   const champion = sorted[0];
+  const size = Number(ui.population.value);
+  const phaseTransition = activeGameKey === "formula"
+    ? consumeSpeedPhaseTransition(formulaTrainingSession, {
+      populationCount: size,
+      mutateGenome: (genome) => mutate(genome),
+    })
+    : null;
+
+  if (phaseTransition) {
+    generation += 1;
+    bestFitness = 0;
+    bestGenome = cloneGenome(phaseTransition.championGenome);
+    leaderGenome = cloneGenome(phaseTransition.championGenome);
+    world = game.createWorld();
+    agents = phaseTransition.genomes.map((genome) => makeAgent(genome));
+    game.resetAgents(agents, world);
+    startSequentialAgent();
+    frame = 0;
+    score = 0;
+    return;
+  }
 
   if (champion.fitness > bestFitness) {
     bestFitness = champion.fitness;
@@ -277,7 +309,6 @@ function evolve() {
   }
   leaderGenome = cloneGenome(champion.genome);
 
-  const size = Number(ui.population.value);
   const eliteCount = Math.max(2, Math.floor(size * 0.08));
   const next = [];
 
@@ -516,7 +547,10 @@ function restartTraining(clearChampion = true) {
   setupPopulation();
 }
 
-function resetAll() {
+function resetAll({ resetFormulaSession = true } = {}) {
+  if (resetFormulaSession && activeGameKey === "formula") {
+    formulaTrainingSession = resetFormulaTrainingSession();
+  }
   running = true;
   ui.toggleRun.textContent = "Pause";
   if (playMode === "human") {
@@ -541,11 +575,12 @@ function setMode(mode) {
   running = true;
   ui.toggleRun.textContent = "Pause";
   updateModeButtons();
-  resetAll();
+  resetAll({ resetFormulaSession: false });
 }
 
 function setGame(nextGameKey) {
   if (activeGameKey === nextGameKey) return;
+  const resetsFormulaSession = activeGameKey === "formula" || nextGameKey === "formula";
   activeGameKey = nextGameKey;
   game = games[activeGameKey];
   playMode = "ai";
@@ -558,6 +593,7 @@ function setGame(nextGameKey) {
   ui.mutation.value = game.defaultMutation.toFixed(2);
   updateGameUi();
   updateModeButtons();
+  if (resetsFormulaSession) formulaTrainingSession = resetFormulaTrainingSession();
   restartTraining(true);
   setChampionStatus(game.defaultChampionStatus);
 }
@@ -2504,7 +2540,6 @@ function createFormulaCircuitGame() {
   const GRIP = 0.16;
   const MAX_AGE = 6200;
   const MAX_FORMULA_LAPS = 3;
-  const PROGRESS_SPEED_MULTIPLIER = 0.25;
   const SENSOR_RANGE = Math.hypot(FORMULA_WORLD_WIDTH, FORMULA_WORLD_HEIGHT);
   const SENSOR_INPUT_DISTANCE = 190;
   const SENSOR_STEP = 14;
@@ -2519,14 +2554,9 @@ function createFormulaCircuitGame() {
   ];
   const START_INDEX = 0;
   const CHECKPOINT_OVERHANG = 24;
-  const PRE_LAP_CHECKPOINT_BONUS = 3600;
-  const POST_LAP_BASE_CHECKPOINT_BONUS = 1800;
-  const POST_LAP_TARGET_SPLIT = 150;
-  const CHECKPOINT_SPEED_MULTIPLIER = 44;
+  const CHECKPOINT_BONUS = 3600;
   const CHECKPOINT_PROGRESS_FITNESS = 16;
-  const TARGET_LAP_TIME = 2200;
   const LAP_COMPLETION_BONUS = 12000;
-  const LAP_SPEED_MULTIPLIER = 9;
   const CAMERA_LEAD_X = 360;
   const CAMERA_LEAD_Y = 280;
   const MANUAL_CAMERA_FRAMES = 240;
@@ -2680,11 +2710,7 @@ function createFormulaCircuitGame() {
     return CHECKPOINTS[agent.nextCheckpoint];
   }
 
-  function checkpointSpeedBonus(split) {
-    return POST_LAP_BASE_CHECKPOINT_BONUS + Math.max(0, POST_LAP_TARGET_SPLIT - split) * CHECKPOINT_SPEED_MULTIPLIER;
-  }
-
-  function updateCheckpoint(agent) {
+  function updateCheckpoint(agent, isAi) {
     const checkpoint = checkpointTarget(agent);
     if (!crossedCheckpointLine(agent, checkpoint)) return;
 
@@ -2694,8 +2720,7 @@ function createFormulaCircuitGame() {
     agent.lastCheckpointFrame = agent.age;
     agent.checkpoints += 1;
     agent.score = agent.laps * CHECKPOINTS.length + agent.checkpoints;
-    const checkpointBonus = agent.laps > 0 ? checkpointSpeedBonus(split) : PRE_LAP_CHECKPOINT_BONUS;
-    agent.fitness += checkpointBonus;
+    agent.fitness += CHECKPOINT_BONUS;
     agent.nextCheckpoint = (agent.nextCheckpoint + 1) % CHECKPOINTS.length;
     agent.bestCheckpointProgress = 0;
     agent.lastProgressFrame = agent.age;
@@ -2705,9 +2730,9 @@ function createFormulaCircuitGame() {
       agent.lastLapTime = agent.age - agent.lapStartFrame;
       agent.bestLapTime = agent.bestLapTime > 0 ? Math.min(agent.bestLapTime, agent.lastLapTime) : agent.lastLapTime;
       agent.lapStartFrame = agent.age;
-      const lapSpeedBonus = Math.max(0, TARGET_LAP_TIME - agent.lastLapTime) * LAP_SPEED_MULTIPLIER;
-      agent.fitness += LAP_COMPLETION_BONUS + lapSpeedBonus;
+      agent.fitness += LAP_COMPLETION_BONUS;
       if (agent.laps >= MAX_FORMULA_LAPS) {
+        if (isAi) recordFirstTripleLapGenome(formulaTrainingSession, agent.genome);
         agent.alive = false;
       }
     }
@@ -2743,7 +2768,7 @@ function createFormulaCircuitGame() {
     return { ...agent.controls };
   }
 
-  function updateFormula(agent, action) {
+  function updateFormula(agent, action, isAi = false) {
     if (!agent.alive) return;
 
     agent.age += 1;
@@ -2800,14 +2825,19 @@ function createFormulaCircuitGame() {
     if (segmentProgress > agent.bestCheckpointProgress) {
       const segmentProgressGain = segmentProgress - agent.bestCheckpointProgress;
       agent.bestCheckpointProgress = segmentProgress;
-      const speedScaledProgressFitness = segmentProgressGain * CHECKPOINT_PROGRESS_FITNESS * (1 + clamp(onTrackSpeed / MAX_SPEED, 0, 1) * PROGRESS_SPEED_MULTIPLIER);
-      agent.fitness += speedScaledProgressFitness;
+      agent.fitness += calculateFormulaProgressFitness({
+        phase: formulaTrainingSession.phase,
+        progressFitness: segmentProgressGain * CHECKPOINT_PROGRESS_FITNESS,
+        onTrack,
+        forwardSpeed: onTrackSpeed,
+        maxSpeed: MAX_SPEED,
+      });
       agent.lastProgressFrame = agent.age;
     }
 
     agent.offroadFrames = 0;
 
-    updateCheckpoint(agent);
+    updateCheckpoint(agent, isAi);
     if (!agent.alive) return;
     agent.stalledFrames = agent.age - agent.lastProgressFrame;
     agent.score = agent.laps * CHECKPOINTS.length + agent.checkpoints;
@@ -2972,11 +3002,16 @@ function createFormulaCircuitGame() {
 
   function drawFormulaHud(targetCtx, currentScore) {
     targetCtx.fillStyle = "rgba(255,255,255,0.84)";
-    targetCtx.fillRect(WIDTH / 2 - 82, 18, 164, 42);
+    targetCtx.fillRect(WIDTH / 2 - 82, 18, 164, 62);
     targetCtx.fillStyle = "#172026";
     targetCtx.textAlign = "center";
     targetCtx.font = "800 17px system-ui";
     targetCtx.fillText(`${currentScore} checkpoints`, WIDTH / 2, 45);
+    targetCtx.font = "700 13px system-ui";
+    const phaseLabel = formulaTrainingSession.phase === FORMULA_FITNESS_PHASE_SPEED
+      ? "Phase vitesse"
+      : "Phase parcours";
+    targetCtx.fillText(phaseLabel, WIDTH / 2, 67);
     targetCtx.textAlign = "left";
   }
 
@@ -3147,10 +3182,10 @@ function createFormulaCircuitGame() {
     },
     stepWorld() {},
     updateAgent(agent) {
-      updateFormula(agent, chooseAction(agent));
+      updateFormula(agent, chooseAction(agent), true);
     },
     updateHuman(agent) {
-      if (agent) updateFormula(agent, controlsForHuman(agent));
+      if (agent) updateFormula(agent, controlsForHuman(agent), false);
     },
     humanPrimaryAction(agent) {
       if (agent) agent.controls.gas = true;

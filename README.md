@@ -94,16 +94,19 @@ main straight, Rettifilo, Curva Grande, Roggia, Lesmo, Serraglio, Ascari, and
 Alboreto/Parabolica sequence. The three chicanes are
 narrower than fast sections, so cars must drive through the alternating turns
 instead of cutting straight across. Ordered checkpoints cover every named
-section, including all three chicanes. Before a first completed lap, positive
-fitness mostly comes from crossing checkpoint lines in order. After a car has
-completed a lap, fast checkpoint splits and short lap times are weighted much
-more heavily. Forward speed along the local track direction can only increase
-the reward for validated progress; it never earns a standalone time-based
+section, including all three chicanes. Training starts in the distance phase:
+only ordered checkpoints and validated progress contribute to fitness. When an
+AI car first completes three laps, that generation finishes under the distance
+fitness and the next generation switches to the speed phase. It starts from an
+exact copy of that three-lap champion plus mutations of it; its old fitness is
+discarded because the two phases are not comparable. In the speed phase,
+forward speed along the local on-track direction can raise validated progress
+by at most 25 percent, but it never earns an independent per-frame or timing
 bonus. Speed while reversing or leaving the track does not count. A specimen is
 evaluated for at most three completed laps. Local centerline loops do not
 accumulate fitness, and leaving the track, reversing, or failing to progress
-ends the attempt. Once a car completes a lap, Formula Circuit's best score is
-the fastest completed lap time.
+ends the attempt. Lap times remain telemetry, and Formula Circuit's best score
+is the fastest completed lap time.
 
 ## Next Game Ideas
 

@@ -176,14 +176,16 @@
             <p>
               Toute la population roule en meme temps. Les voitures sont des fantomes entre elles :
               elles ne se percutent pas, pour que l'evolution apprenne surtout a suivre le circuit
-              dans le bon sens. Chaque specimen s'arrete apres trois tours complets. Son fitness
-              combine checkpoints et progression ; la vitesse vers l'avant augmente seulement la
-              recompense d'un chemin effectivement valide.
+              dans le bon sens. Chaque specimen s'arrete apres trois tours complets. La premiere
+              phase, Parcours, recompense uniquement les checkpoints et la progression validee.
+              Quand une IA boucle trois tours, la generation suivante passe en phase Vitesse : la
+              vitesse vers l'avant augmente alors seulement la recompense d'un chemin effectivement
+              valide.
             </p>
             <p>
-              La fitness recompense d'abord le nombre de checkpoints franchis dans l'ordre. Apres
-              un premier tour, les passages rapides entre checkpoints et les tours courts valent
-              beaucoup plus. Les trois chicanes sont volontairement plus etroites que les sections
+              La fitness recompense d'abord le nombre de checkpoints franchis dans l'ordre. Le chrono
+              reste une mesure affichee, sans bonus de fitness. Le HUD indique toujours la phase
+              active de l'apprentissage. Les trois chicanes sont volontairement plus etroites que les sections
               rapides : sortir de la piste, rouler a l'envers ou rester sans progression met fin a
               l'essai.
             </p>

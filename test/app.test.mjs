@@ -345,7 +345,13 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /const FORMULA_WORLD_WIDTH = 3600/);
   assert.match(script, /const FORMULA_WORLD_HEIGHT = 2450/);
   assert.match(script, /const MAX_FORMULA_LAPS = 3/);
-  assert.match(script, /const PROGRESS_SPEED_MULTIPLIER = 0\.25/);
+  assert.match(script, /createFormulaTrainingSession/);
+  assert.match(script, /resetFormulaTrainingSession/);
+  assert.match(script, /recordFirstTripleLapGenome/);
+  assert.match(script, /consumeSpeedPhaseTransition/);
+  assert.match(script, /calculateFormulaProgressFitness/);
+  assert.match(script, /FORMULA_FITNESS_PHASE_DISTANCE/);
+  assert.match(script, /FORMULA_FITNESS_PHASE_SPEED/);
   assert.match(script, /const SENSOR_RANGE = Math\.hypot\(FORMULA_WORLD_WIDTH, FORMULA_WORLD_HEIGHT\)/);
   assert.match(script, /const SENSOR_INPUT_DISTANCE = 190/);
   assert.match(script, /const FORMULA_SENSOR_OFFSETS = \[/);
@@ -353,7 +359,7 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /return 1 - Math\.exp\(-sensorHitDistance\(agent, offset\) \/ SENSOR_INPUT_DISTANCE\)/);
   assert.match(script, /const onTrackSpeed = Math\.max\(0, agent\.vx \* Math\.cos\(nextTrack\.angle\) \+ agent\.vy \* Math\.sin\(nextTrack\.angle\)\)/);
   assert.doesNotMatch(script, /FORMULA_SPEED_FITNESS/);
-  assert.match(script, /if \(agent\.laps >= MAX_FORMULA_LAPS\) \{\s+agent\.alive = false/);
+  assert.match(script, /if \(agent\.laps >= MAX_FORMULA_LAPS\) \{\s+if \(isAi\) recordFirstTripleLapGenome\(formulaTrainingSession, agent\.genome\);\s+agent\.alive = false/);
   assert.match(script, /function drawFormulaSensors/);
   assert.match(script, /#2ee7ff/);
   assert.match(script, /const focusAgent = ordered\.find\(\(agent\) => agent\.alive\) \|\| ordered\[0\]/);
@@ -379,22 +385,26 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /checkpoint\.geometry\.endX/);
   assert.doesNotMatch(script, /cameraY \* 0\.28/);
   assert.match(script, /const startY = -\(cameraY % 56\) - 56/);
-  assert.match(script, /const POST_LAP_TARGET_SPLIT = 150/);
   assert.match(script, /const CHECKPOINT_PROGRESS_FITNESS = 16/);
-  assert.match(script, /function checkpointSpeedBonus/);
   assert.match(script, /function forwardDistanceBetween/);
   assert.match(script, /function checkpointSegmentProgress/);
   assert.match(script, /agent\.lastCheckpointFrame = 0/);
   assert.match(script, /agent\.lastCheckpointSplit = 0/);
   assert.match(script, /agent\.bestCheckpointSplit = 0/);
   assert.match(script, /agent\.bestCheckpointProgress = 0/);
-  assert.match(script, /agent\.laps > 0 \? checkpointSpeedBonus\(split\) : PRE_LAP_CHECKPOINT_BONUS/);
   assert.match(script, /agent\.bestCheckpointProgress = 0;\n    agent\.lastProgressFrame = agent\.age;/);
   assert.match(script, /const segmentProgress = checkpointSegmentProgress\(agent, nextTrack\.progress\)/);
   assert.match(script, /const segmentProgressGain = segmentProgress - agent\.bestCheckpointProgress/);
-  assert.match(script, /const speedScaledProgressFitness = segmentProgressGain \* CHECKPOINT_PROGRESS_FITNESS \* \(1 \+ clamp\(onTrackSpeed \/ MAX_SPEED, 0, 1\) \* PROGRESS_SPEED_MULTIPLIER\)/);
-  assert.match(script, /agent\.fitness \+= speedScaledProgressFitness/);
-  assert.match(script, /const lapSpeedBonus = Math\.max\(0, TARGET_LAP_TIME - agent\.lastLapTime\) \* LAP_SPEED_MULTIPLIER/);
+  assert.match(script, /calculateFormulaProgressFitness\(\{[\s\S]*?phase: formulaTrainingSession\.phase/);
+  assert.match(script, /recordFirstTripleLapGenome\(formulaTrainingSession, agent\.genome\)/);
+  assert.match(script, /consumeSpeedPhaseTransition\(formulaTrainingSession/);
+  assert.match(script, /resetAll\(\{ resetFormulaSession: false \}\)/);
+  assert.match(script, /if \(resetFormulaSession && activeGameKey === "formula"\) \{\s+formulaTrainingSession = resetFormulaTrainingSession\(\);/);
+  assert.match(script, /updateFormula\(agent, chooseAction\(agent\), true\)/);
+  assert.match(script, /updateFormula\(agent, controlsForHuman\(agent\), false\)/);
+  assert.match(script, /Phase parcours/);
+  assert.match(script, /Phase vitesse/);
+  assert.doesNotMatch(script, /checkpointSpeedBonus|lapSpeedBonus|TARGET_LAP_TIME|LAP_SPEED_MULTIPLIER|CHECKPOINT_SPEED_MULTIPLIER/);
   assert.match(script, /bestScoreMetric\(nextAgents\)/);
   assert.match(script, /lowerBestScoreIsBetter: true/);
   assert.match(script, /formatFormulaTime/);
@@ -727,6 +737,19 @@ test("game picker switches to Formula Circuit with full-population cars and netw
   assert.equal(labels.includes("brake"), true);
   assert.equal(labels.includes("left"), true);
   assert.equal(labels.includes("right"), true);
+});
+
+test("Formula Circuit HUD starts in the distance fitness phase", async () => {
+  const harness = await loadHarness();
+
+  element(harness, "gameFormula").click();
+  harness.runFrame();
+
+  const gameLabels = element(harness, "game").getContext().calls
+    .filter((call) => call.type === "fillText")
+    .map((call) => call.text);
+  assert.equal(gameLabels.includes("Phase parcours"), true);
+  assert.equal(gameLabels.includes("Phase vitesse"), false);
 });
 
 test("training controls evolve generations and difficulty presets update numeric settings", async () => {
