@@ -109,23 +109,28 @@ ends the attempt. Lap times remain telemetry, and Formula Circuit's best score
 is the fastest completed lap time.
 
 `Village Raid HDV 3` is an AI-only top-down village attack simulation. Its local
-combat snapshot is versioned `th3-2026-07-11-v1`, its geometry is versioned
-`th3-layouts-v1`, and both are dated `2026-07-11`. Each specimen
+combat snapshot is versioned `th3-2026-07-11-v2`, its geometry is versioned
+`th3-reference-layouts-v2`, and both are dated `2026-07-11`. Each specimen
 first composes exactly 70 housing spaces, then deploys one troop at a time around
 the village perimeter. The 37 -> 18 -> 7 network observes phase, time,
 destruction, five inventory ratios, five living-troop ratios, and three channels
 for each of eight spatial sectors. Its outputs score the five troop types, select
 a perimeter position, and open or close the deployment gate.
 
-Every specimen attacks three fixed layouts sequentially: open, compartmented,
-and central Town Hall. The full composition is restored for every base. Fitness
-is the strict mean of the three destruction percentages; time, remaining troops,
-walls, bombs, and stars never add shaping rewards. The snapshot contains 25
-buildings, 50 walls, and 2 bombs. The building roster is: 1 Town Hall, 1 Clan
-Castle, 2 Army Camps, 1 Barracks, 1 Laboratory, 3 Gold Mines, 3 Elixir
-Collectors, 2 Gold Storages, 2 Elixir Storages, 5 Builder Huts, 2 Cannons, 1
-Archer Tower, and 1 Mortar. The Clan Castle is empty; spells, heroes, and
-reinforcements are outside this arcade model.
+Every specimen attacks three fixed reconstructed references sequentially:
+`farm-111`, `war-26`, and `defence-104`. The full composition is restored for
+every base. Fitness is the strict mean of the three destruction percentages;
+time, remaining troops, walls, bombs, and stars never add shaping rewards. Each
+reference contains 22 buildings, 50 walls, and 2 bombs. The building roster is:
+1 Town Hall, 1 Clan Castle, 2 Army Camps, 1 Barracks, 1 Laboratory, 3 Gold Mines,
+3 Elixir Collectors, 2 Gold Storages, 2 Elixir Storages, 2 Builder Huts, 2
+Cannons, 1 Archer Tower, and 1 Mortar. The Clan Castle is empty; spells, heroes,
+and reinforcements are outside this arcade model.
+
+Destruction divides destroyed buildings by the initial building count captured
+when that raid begins. The current references therefore use 22 as their
+denominator, while the captured value keeps the calculation valid if a later
+layout has a different roster. Walls and bombs are not part of this denominator.
 
 | Building | Quantity | Level | HP | DPS | Range | Cadence |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -138,7 +143,7 @@ reinforcements are outside this arcade model.
 | Elixir Collector | 3 | 6 | 600 | - | - | - |
 | Gold Storage | 2 | 6 | 1400 | - | - | - |
 | Elixir Storage | 2 | 6 | 1400 | - | - | - |
-| Builder Hut | 5 | 1 | 250 | - | - | - |
+| Builder Hut | 2 | 1 | 250 | - | - | - |
 | Cannon | 2 | 4 | 500 | 17 | 9 | 0.8 s |
 | Archer Tower | 1 | 3 | 460 | 19 | 10 | 0.5 s |
 | Mortar | 1 | 1 | 400 | 4 | 11 | 5 s |
@@ -157,6 +162,9 @@ level 2 dealing 24 damage, with trigger radius 1.5 and damage radius 3.
 
 Snapshot sources:
 
+- Reference layouts: [farm-111](https://clashofclans-layouts.com/fr/plans/th_3/farm_111.html),
+  [war-26](https://clashofclans-layouts.com/fr/plans/th_3/war_26.html), and
+  [defence-104](https://clashofclans-layouts.com/fr/plans/th_3/defence_104.html).
 - Progression and buildings: [Town Hall](https://clashofclans.fandom.com/wiki/Town_Hall),
   [Clan Castle](https://clashofclans.fandom.com/wiki/Clan_Castle),
   [Army Camp](https://clashofclans.fandom.com/wiki/Army_Camp),
@@ -181,8 +189,10 @@ Snapshot sources:
 
 These values are a dated local snapshot, not a live service. The deterministic
 arcade engine simplifies collision, targeting, movement, projectile travel, and
-timing while preserving the documented roles used by the model. It uses original
-geometric visuals, ships all data locally, and makes no runtime network request.
+timing while preserving the documented roles used by the model. Original
+procedural Canvas building textures retain square footprint outlines. A compact
+Canvas troop key is paired with a live DOM troop legend that reports the current
+inventory. All data and visuals ship locally, with no runtime network request.
 
 ## Next Game Ideas
 
