@@ -95,8 +95,21 @@ const ui = {
   raidBase: document.querySelector("#raidBase"),
   raidComposition: document.querySelector("#raidComposition"),
   raidInventory: document.querySelector("#raidInventory"),
+  raidLegendBarbarian: document.querySelector("#raidLegendBarbarian"),
+  raidLegendArcher: document.querySelector("#raidLegendArcher"),
+  raidLegendGiant: document.querySelector("#raidLegendGiant"),
+  raidLegendGoblin: document.querySelector("#raidLegendGoblin"),
+  raidLegendWallBreaker: document.querySelector("#raidLegendWallBreaker"),
   raidAverage: document.querySelector("#raidAverage"),
 };
+
+const RAID_LEGEND_OUTPUTS = Object.freeze({
+  barbarian: ui.raidLegendBarbarian,
+  archer: ui.raidLegendArcher,
+  giant: ui.raidLegendGiant,
+  goblin: ui.raidLegendGoblin,
+  wallBreaker: ui.raidLegendWallBreaker,
+});
 
 const WIDTH = 960;
 const HEIGHT = 560;
@@ -573,6 +586,9 @@ function updateRaidPanel(agent, targetWorld) {
   ui.raidBase.textContent = `${(targetWorld?.raidBaseIndex ?? 0) + 1}/3`;
   ui.raidComposition.textContent = formatRaidArmy(agent?.composition);
   ui.raidInventory.textContent = formatRaidArmy(raidWorld?.inventory);
+  for (const [type, output] of Object.entries(RAID_LEGEND_OUTPUTS)) {
+    output.textContent = String(raidWorld?.inventory?.[type] ?? 0);
+  }
   const completed = agent?.raidResults || [];
   const current = raidWorld ? destructionPercent(raidWorld) : 0;
   const average = completed.length

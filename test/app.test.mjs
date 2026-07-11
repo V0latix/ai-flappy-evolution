@@ -56,6 +56,7 @@ class MockElement {
     this.step = step;
     this.textContent = textContent;
     this.disabled = false;
+    this.hidden = false;
     this.listeners = new Map();
     this.classList = new ClassList(className);
     this.context = tagName.toLowerCase() === "canvas" ? createMockContext() : null;
@@ -312,6 +313,12 @@ test("static app includes every primary control and asset reference", async () =
     "explanationFormula",
     "explanationRaid",
     "raidPanel",
+    "raidTroopLegend",
+    "raidLegendBarbarian",
+    "raidLegendArcher",
+    "raidLegendGiant",
+    "raidLegendGoblin",
+    "raidLegendWallBreaker",
     "raidBase",
     "raidComposition",
     "raidInventory",
@@ -638,6 +645,7 @@ test("game picker switches to AI-only Village Raid with its profile and HUD", as
   assert.equal(element(harness, "speed").value, 30);
   assert.equal(element(harness, "speed").max, 100);
   assert.equal(element(harness, "raidPanel").hidden, false);
+  assert.equal(element(harness, "raidTroopLegend").hidden, false);
   assert.equal(element(harness, "pipeSettings").hidden, true);
   assert.equal(element(harness, "lunarSettings").hidden, true);
   assert.equal(element(harness, "presetPanel").hidden, true);
@@ -646,6 +654,24 @@ test("game picker switches to AI-only Village Raid with its profile and HUD", as
   assert.match(element(harness, "raidComposition").textContent, /Barbares/);
   assert.match(element(harness, "raidInventory").textContent, /Barbares/);
   assert.equal(element(harness, "raidAverage").textContent, "0.00%");
+
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(html, /Cible : defenses/);
+  assert.match(html, /Cible : ressources/);
+  assert.match(html, /Cible : murs/);
+
+  const inventoryText = element(harness, "raidInventory").textContent;
+  for (const [label, outputId] of [
+    ["Barbares", "raidLegendBarbarian"],
+    ["Archeres", "raidLegendArcher"],
+    ["Geants", "raidLegendGiant"],
+    ["Gobelins", "raidLegendGoblin"],
+    ["Sapeurs", "raidLegendWallBreaker"],
+  ]) {
+    const count = inventoryText.match(new RegExp(`${label} (\\d+)`));
+    assert.ok(count, label);
+    assert.equal(element(harness, outputId).textContent, count[1]);
+  }
 
   const raidOverlayLabels = element(harness, "game").getContext().calls
     .filter((call) => call.type === "fillText" && /^(Destruction|Moyenne)/.test(call.text));

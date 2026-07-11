@@ -348,6 +348,66 @@ select {
   line-height: 1.45;
 }
 
+.raid-troop-legend {
+  display: grid;
+  gap: 7px;
+  padding: 10px 0;
+  border-bottom: 2px solid var(--fg);
+}
+
+.raid-troop-legend h3 {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.raid-troop-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.raid-troop-row small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.raid-troop-row output {
+  font-weight: 900;
+}
+
+.raid-troop-icon {
+  position: relative;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 2px solid var(--fg);
+  border-radius: 50%;
+  box-shadow: 2px 2px 0 var(--fg);
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+
+.raid-troop-icon::before {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 65%);
+  content: "";
+}
+
+.raid-troop-barbarian .raid-troop-icon { background: #f2c14e; }
+.raid-troop-archer .raid-troop-icon { background: #e887b7; }
+.raid-troop-giant .raid-troop-icon { width: 32px; height: 32px; background: #c88d5a; }
+.raid-troop-goblin .raid-troop-icon { background: #4fae63; }
+.raid-troop-wall-breaker .raid-troop-icon { background: #edf2f4; }
+
 .game-summary {
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr) minmax(180px, 0.7fr);
