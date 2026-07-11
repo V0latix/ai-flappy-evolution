@@ -4,11 +4,12 @@
 
 Neuro Evolution Arcade is a static browser app for training neural-network
 agents on small arcade games through neuroevolution. It currently includes
-Flappy Bird and Lunar Lander Lite, and the codebase should continue evolving as
-a multi-game lab.
+Flappy Bird, Lunar Lander Lite, Hill Climb, and Formula Circuit. The codebase
+should continue evolving as a multi-game lab.
 
 The app has no build step and no runtime dependencies. It is served directly
-from `index.html`, `src/main.js`, and `src/styles.css`.
+from `index.html`, `src/main.js`, `src/formula-track.js`, `src/formula-training.js`,
+and `src/styles.css`.
 
 ## Commands
 
@@ -23,16 +24,23 @@ This command runs:
 - `node --check src/main.js`
 - `npm test`
 
-The test suite lives in `test/app.test.mjs` and uses Node's built-in
-`node:test` runner with a lightweight DOM/canvas mock.
+The test suite uses Node's built-in `node:test` runner. `test/app.test.mjs`
+uses a lightweight DOM/canvas mock; `test/formula-track.test.mjs` and
+`test/formula-training.test.mjs` cover Formula Circuit's pure modules.
 
 ## Repository Layout
 
 - `index.html`: app structure, controls, and explanatory content
 - `src/main.js`: shared neuroevolution loop, game profiles, human mode,
   localStorage champion management, presets, and canvas drawing
+- `src/formula-track.js`: Formula Circuit's normalized Monza-inspired centerline,
+  segments, track widths, and ordered checkpoint geometry
+- `src/formula-training.js`: Formula Circuit's two-phase fitness-session state
+  and phase-two population seeding helpers
 - `src/styles.css`: responsive layout and control styling
 - `test/app.test.mjs`: regression tests for the main app flows
+- `test/formula-track.test.mjs`: Formula Circuit geometry and checkpoint tests
+- `test/formula-training.test.mjs`: Formula Circuit training-phase and fitness tests
 - `README.md`: user-facing documentation and game roadmap
 
 ## Implementation Rules
@@ -44,6 +52,9 @@ The test suite lives in `test/app.test.mjs` and uses Node's built-in
   features.
 - Use ASCII in source files unless a file already requires non-ASCII text.
 - If changing `src/main.js`, update or add tests in `test/app.test.mjs`.
+- If changing Formula Circuit's track geometry or training-session helpers,
+  update the matching `test/formula-track.test.mjs` or
+  `test/formula-training.test.mjs` coverage.
 - If adding a new control in `index.html`, add coverage that proves the control
   exists and affects app state.
 - If changing neural-network shape, update:
@@ -66,9 +77,9 @@ boundaries:
 - Tests for boot, controls, scoring, and reset behavior
 
 Avoid hard-coding game-specific concepts into shared neuroevolution logic when
-adding the next game. Flappy Bird and Lunar Lander Lite each define their own
-observation vector, action mapping, fitness function, rendering, human controls,
-and champion storage keys.
+adding the next game. Flappy Bird, Lunar Lander Lite, Hill Climb, and Formula
+Circuit each define their own observation vector, action mapping, fitness
+function, rendering, human controls, and champion storage keys.
 
 ## Gameplay Notes
 
@@ -91,8 +102,8 @@ and champion storage keys.
   tilted toward side targets. These controls must be hidden for Flappy Bird, and
   changing them should reset Lunar training.
 - Flappy Bird pipe controls (`pipeSettings`, `pipeGap`, `pipeSpacing`, and
-  `presetPanel`) must be visible only for Flappy Bird. Lunar should never show
-  pipe sliders.
+  `presetPanel`) must be visible only for Flappy Bird. Lunar, Hill Climb, and
+  Formula Circuit should never show pipe sliders.
 - Lunar Lander Lite has eight inputs (`x`, `altitude`, `vx`, `vy`, `angle`,
   `fuel`, `pad dx`, `spin`) and three outputs (`thrust`, `left`, `right`).
   Lunar uses sequential evaluation with a shared per-generation target
@@ -126,6 +137,37 @@ and champion storage keys.
   saves may still exist.
 - Saved Lunar Lander champions are stored under
   `neuro-evolution-arcade.lunar.champion`.
+- Hill Climb is a sequential, fixed-course game. Its fourteen inputs cover
+  vehicle motion, angle, fuel, wheel contact, terrain slope, upcoming terrain,
+  fuel, and coins; its two outputs are gas and brake. Preserve its original
+  countryside terrain, fuel and coin behavior, and distance-dominant fitness
+  when changing its physics or controls. Saved Hill Climb champions use
+  `neuro-evolution-arcade.hill-climb.champion`.
+- Formula Circuit is a simultaneous, ghost-car top-down race on a large,
+  scrolling Monza-inspired circuit. Its eight inputs are forward speed plus
+  seven forward-facing vision rays; its four combinable outputs are gas, brake,
+  left, and right. Keep the human held-state arrow/WASD controls, focused-car
+  camera, clickable minimap, and ordered checkpoint scoring in sync with the
+  game profile and UI tests.
+- Formula Circuit's hand-authored track lives in `src/formula-track.js`. The
+  circuit must remain clockwise, non-self-intersecting, and preserve the named
+  section order. The three chicanes (Rettifilo, Roggia, and Ascari) are narrower
+  than other sections and need distinct entry and exit checkpoints; update
+  geometry tests whenever that layout changes.
+- Formula Circuit training begins in the distance phase: only ordered
+  checkpoints and validated on-track progress earn fitness. When the first AI
+  car completes three laps, finish that generation under distance fitness, then
+  seed the following speed-phase population with an exact copy of that champion
+  plus mutations. Do not compare or carry over fitness between phases. In the
+  speed phase, positive forward speed while on track may increase validated
+  progress fitness by at most 25 percent; it must not add an independent
+  per-frame, checkpoint, or timing bonus. Reversing, leaving the track, or
+  stalling ends the attempt. Lap time is telemetry, and the best score is the
+  fastest completed lap time.
+- Formula Circuit agents stop after three completed laps. Keep the HUD phase
+  label, checkpoint total, phase-transition/reset behavior, phase-specific
+  tests, and champion compatibility aligned. Saved Formula Circuit champions
+  use `neuro-evolution-arcade.formula-circuit.champion`.
 
 ## Before Push Checklist
 
