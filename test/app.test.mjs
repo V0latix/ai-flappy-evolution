@@ -1027,6 +1027,33 @@ test("Village Raid renders 180 before accelerating a new generation", async () =
   assert.equal(lastRaidTimeLabel(context), "Temps 179 s");
 });
 
+test("Village Raid renders 180 for exactly one frame between specimens", async () => {
+  const harness = await loadHarness();
+  const context = element(harness, "game").getContext();
+  element(harness, "gameRaid").click();
+  harness.storage.setItem(raidChampionStorageKey, JSON.stringify({
+    game: "raid",
+    genome: Array.from({ length: 817 }, () => 0),
+    inputs: 37,
+    hidden: 18,
+    outputs: 7,
+    datasetVersion: "th3-2026-07-11-v2",
+    layoutVersion: "th3-reference-layouts-v3",
+  }));
+  element(harness, "loadChampion").click();
+
+  context.calls.length = 0;
+  runUntil(harness, () => element(harness, "alive").textContent === "2/24", 370);
+  assert.equal(element(harness, "raidBase").textContent, "1/3");
+  assert.equal(element(harness, "raidTime").textContent, "180 s");
+  assert.equal(lastRaidTimeLabel(context), "Temps 180 s");
+
+  context.calls.length = 0;
+  harness.runFrame();
+  assert.equal(element(harness, "raidTime").textContent, "179 s");
+  assert.equal(lastRaidTimeLabel(context), "Temps 179 s");
+});
+
 test("Village Raid restores a depleted specialized army at each base transition", async () => {
   const harness = await loadHarness();
   element(harness, "gameRaid").click();

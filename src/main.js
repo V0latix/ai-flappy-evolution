@@ -3388,7 +3388,7 @@ function createVillageRaidGame() {
     targetWorld.raidBaseIndex = plan.baseIndex;
     targetWorld.raidWorld = createRaidWorld(plan.baseIndex, plan.composition);
     targetWorld.raidTerminalPending = false;
-    targetWorld.raidStartFramePending = true;
+    targetWorld.raidStartFramePending = !targetWorld.raidFrameYieldPending;
   }
 
   function finishBase(agent, targetWorld) {
