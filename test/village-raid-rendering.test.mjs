@@ -1,12 +1,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  RAID_BUILDING_NAMES,
   RAID_TROOP_VISUALS,
   drawRaidBuilding,
   drawRaidTroop,
   drawRaidTroopKey,
 } from "../src/village-raid-rendering.js";
 import { BUILDING_DEFINITIONS } from "../src/village-raid-data.js";
+
+test("building names expose all 13 French inspection labels", () => {
+  assert.deepEqual(RAID_BUILDING_NAMES, {
+    townHall: "Hotel de ville",
+    clanCastle: "Chateau de clan",
+    armyCamp: "Camp militaire",
+    barracks: "Caserne",
+    laboratory: "Laboratoire",
+    goldMine: "Mine d'or",
+    elixirCollector: "Extracteur d'elixir",
+    goldStorage: "Reserve d'or",
+    elixirStorage: "Reserve d'elixir",
+    builderHut: "Cabane d'ouvrier",
+    cannon: "Canon",
+    archerTower: "Tour d'archers",
+    mortar: "Mortier",
+  });
+});
 
 test("every building type draws inside its complete footprint", () => {
   for (const [type, definition] of Object.entries(BUILDING_DEFINITIONS)) {
@@ -39,17 +58,89 @@ test("every building type draws inside its complete footprint", () => {
   }
 });
 
-test("the cannon keeps a square base while drawing a round barrel assembly", () => {
+test("the cannon keeps its square outline and draws wheels, a base, and a long barrel", () => {
   const ctx = recordingContext();
   drawRaidBuilding(ctx, cannonFixture(), 0, 10);
   const outlines = ctx.calls.filter((call) => call.type === "strokeRect");
   assert.deepEqual(outlines[0], {
     type: "strokeRect", x: 32, y: 42, width: 26, height: 26,
   });
-  assert.ok(outlines.some((call) =>
-    call !== outlines[0] && call.width === call.height && call.width < outlines[0].width
-  ));
-  assert.ok(ctx.calls.some((call) => call.type === "arc" && call.x === 45 && call.y === 55));
+  assert.ok(ctx.calls.filter((call) => call.type === "arc").length >= 2, "two wheels");
+  const detailRects = ctx.calls.filter((call) =>
+    call.type === "fillRect" && call.fillStyle !== "#20262d" && call.fillStyle !== "#48c774"
+  ).slice(1);
+  assert.ok(detailRects.some((call) => call.width === call.height), "square masonry base");
+  assert.ok(detailRects.some((call) => call.width >= call.height * 2.5), "long barrel");
+});
+
+test("the mortar draws a round turntable and a rotated open tube", () => {
+  const ctx = recordingContext();
+  drawRaidBuilding(ctx, buildingFixture("mortar"), 0, 10);
+
+  const rotateIndex = ctx.calls.findIndex((call) => call.type === "rotate");
+  assert.ok(ctx.calls.some((call) => call.type === "arc" && call.radius >= 6), "turntable");
+  assert.ok(rotateIndex > 0, "elevated tube rotation");
+  assert.ok(ctx.calls.slice(rotateIndex).some((call) =>
+    call.type === "fillRect" && call.width >= call.height * 2.5
+  ), "thick tube");
+  assert.ok(ctx.calls.slice(rotateIndex).some((call) =>
+    (call.type === "arc" || call.type === "ellipse") &&
+    (call.radius ?? call.radiusX) < 4
+  ), "dark tube opening");
+});
+
+test("gold mine uses rails and a cart rather than a storage sphere", () => {
+  const ctx = recordingContext();
+  drawRaidBuilding(ctx, buildingFixture("goldMine"), 0, 10);
+
+  assert.ok(ctx.calls.filter((call) => call.type === "lineTo").length >= 2, "rail lines");
+  assert.ok(ctx.calls.filter((call) => call.type === "fillRect").length >= 2, "cart rectangle");
+  assert.equal(ctx.calls.some((call) =>
+    call.type === "ellipse" && call.radiusX >= 7 && call.radiusY >= 7
+  ), false, "no large spherical storage ellipse");
+});
+
+test("gold storage draws a reinforced bin filled with coins", () => {
+  const ctx = recordingContext();
+  drawRaidBuilding(ctx, buildingFixture("goldStorage"), 0, 10);
+
+  assert.ok(ctx.calls.some((call) =>
+    call.type === "fillRect" && call.width >= 15 && call.height >= 10
+  ), "large bin");
+  assert.ok(ctx.calls.filter((call) => call.type === "arc" && call.radius <= 3).length >= 3, "coins");
+});
+
+test("elixir collector draws pipes and a small vat", () => {
+  const ctx = recordingContext();
+  drawRaidBuilding(ctx, buildingFixture("elixirCollector"), 0, 10);
+
+  assert.ok(ctx.calls.filter((call) => call.type === "lineTo").length >= 2, "pipe lines");
+  assert.ok(ctx.calls.some((call) =>
+    call.type === "ellipse" && call.radiusX < 7 && call.radiusY < 7
+  ), "small vat");
+});
+
+test("elixir storage draws a large spherical tank and stopper", () => {
+  const ctx = recordingContext();
+  drawRaidBuilding(ctx, buildingFixture("elixirStorage"), 0, 10);
+
+  assert.ok(ctx.calls.some((call) =>
+    call.type === "ellipse" && call.radiusX >= 7 && call.radiusY >= 7
+  ), "large spherical tank");
+  assert.ok(ctx.calls.filter((call) => call.type === "fillRect").length >= 2, "stopper rectangle");
+});
+
+test("building health bars sit above the footprint", () => {
+  for (const type of Object.keys(BUILDING_DEFINITIONS)) {
+    const building = buildingFixture(type);
+    const ctx = recordingContext();
+    drawRaidBuilding(ctx, building, 0, 10);
+    const bars = ctx.calls.filter((call) =>
+      call.type === "fillRect" && ["#20262d", "#48c774"].includes(call.fillStyle)
+    );
+    assert.equal(bars.length, 2, type);
+    assert.ok(bars.every((call) => call.y < building.y * 10), type);
+  }
 });
 
 test("principal building details stay within their natural footprint", () => {
@@ -123,6 +214,7 @@ function assertGeometryWithin(calls, bounds, label) {
   const worldCalls = transformIndex < 0 ? calls : calls.slice(0, transformIndex);
   for (const call of worldCalls) {
     if (call.type === "fillRect" || call.type === "strokeRect") {
+      if (["#20262d", "#48c774"].includes(call.fillStyle)) continue;
       assert.ok(call.x >= bounds.left && call.x + call.width <= bounds.right, `${label} rect x`);
       assert.ok(call.y >= bounds.top && call.y + call.height <= bounds.bottom, `${label} rect y`);
     } else if (call.type === "moveTo" || call.type === "lineTo") {
@@ -139,10 +231,14 @@ function assertGeometryWithin(calls, bounds, label) {
 }
 
 function cannonFixture() {
-  const definition = BUILDING_DEFINITIONS.cannon;
+  return buildingFixture("cannon");
+}
+
+function buildingFixture(type) {
+  const definition = BUILDING_DEFINITIONS[type];
   return {
-    id: "cannon-test",
-    type: "cannon",
+    id: `${type}-test`,
+    type,
     category: definition.category,
     x: 3,
     y: 4,

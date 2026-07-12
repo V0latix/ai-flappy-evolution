@@ -6,6 +6,22 @@ export const RAID_TROOP_VISUALS = Object.freeze({
   wallBreaker: Object.freeze({ color: "#edf2f4", label: "S" }),
 });
 
+export const RAID_BUILDING_NAMES = Object.freeze({
+  townHall: "Hotel de ville",
+  clanCastle: "Chateau de clan",
+  armyCamp: "Camp militaire",
+  barracks: "Caserne",
+  laboratory: "Laboratoire",
+  goldMine: "Mine d'or",
+  elixirCollector: "Extracteur d'elixir",
+  goldStorage: "Reserve d'or",
+  elixirStorage: "Reserve d'elixir",
+  builderHut: "Cabane d'ouvrier",
+  cannon: "Canon",
+  archerTower: "Tour d'archers",
+  mortar: "Mortier",
+});
+
 const BUILDING_PALETTES = Object.freeze({
   townHall: ["#f0a43a", "#855027"],
   clanCastle: ["#aeb8c4", "#596575"],
@@ -38,7 +54,7 @@ export function drawRaidBuilding(ctx, building, offsetX, tile) {
   ctx.strokeRect(x + 2, y + 2, width - 4, height - 4);
 
   drawBuildingDetail(ctx, building.type, x, y, width, height, primary, secondary);
-  drawHealthBar(ctx, x + 3, y + 3, width - 6, building.hp, building.maxHp);
+  drawHealthBar(ctx, x + 3, Math.max(1, y - 5), width - 6, building.hp, building.maxHp);
   ctx.restore();
 }
 
@@ -126,34 +142,86 @@ function drawBuildingDetail(ctx, type, x, y, width, height, primary, secondary) 
     return;
   }
 
-  if (type === "goldMine" || type === "elixirCollector") {
+  if (type === "goldMine") {
+    ctx.fillStyle = "#29251f";
     ctx.beginPath();
-    ctx.ellipse(centerX, centerY, width * 0.3, height * 0.22, 0, 0, Math.PI * 2);
+    ctx.ellipse(centerX, y + height * 0.34, width * 0.2, height * 0.14, 0, Math.PI, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    ctx.fillRect(centerX - width * 0.08, y + inset, width * 0.16, height * 0.32);
+    ctx.strokeStyle = "#d8c28c";
+    ctx.beginPath();
+    ctx.moveTo(centerX - width * 0.13, y + height * 0.38);
+    ctx.lineTo(x + width * 0.2, y + height * 0.82);
+    ctx.moveTo(centerX + width * 0.13, y + height * 0.38);
+    ctx.lineTo(x + width * 0.8, y + height * 0.82);
+    ctx.stroke();
+    ctx.fillStyle = primary;
+    ctx.fillRect(centerX - width * 0.16, y + height * 0.58, width * 0.32, height * 0.18);
     return;
   }
 
-  if (type === "goldStorage" || type === "elixirStorage") {
+  if (type === "elixirCollector") {
+    ctx.fillStyle = primary;
+    ctx.beginPath();
+    ctx.ellipse(x + width * 0.68, y + height * 0.65, width * 0.17, height * 0.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#8d98a5";
+    ctx.fillRect(x + width * 0.2, y + height * 0.3, width * 0.22, height * 0.28);
+    ctx.strokeStyle = "#d5dce3";
+    ctx.beginPath();
+    ctx.moveTo(x + width * 0.31, y + height * 0.3);
+    ctx.lineTo(x + width * 0.31, y + height * 0.2);
+    ctx.lineTo(x + width * 0.68, y + height * 0.2);
+    ctx.lineTo(x + width * 0.68, y + height * 0.5);
+    ctx.stroke();
+    return;
+  }
+
+  if (type === "goldStorage") {
+    ctx.fillStyle = "#8a6428";
+    ctx.fillRect(x + width * 0.16, y + height * 0.26, width * 0.68, height * 0.56);
+    ctx.strokeRect(x + width * 0.16, y + height * 0.26, width * 0.68, height * 0.56);
+    ctx.fillStyle = "#f4cf45";
+    for (const [coinX, coinY] of [[0.32, 0.48], [0.5, 0.42], [0.68, 0.5], [0.45, 0.64]]) {
+      ctx.beginPath();
+      ctx.arc(x + width * coinX, y + height * coinY, Math.min(width, height) * 0.07, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    return;
+  }
+
+  if (type === "elixirStorage") {
+    ctx.fillStyle = primary;
     ctx.beginPath();
     ctx.ellipse(centerX, centerY, width * 0.32, height * 0.34, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    ctx.strokeRect(centerX - width * 0.2, centerY - height * 0.12, width * 0.4, height * 0.24);
+    ctx.fillStyle = "rgba(255, 231, 255, 0.55)";
+    ctx.beginPath();
+    ctx.ellipse(centerX - width * 0.1, centerY - height * 0.1, width * 0.06, height * 0.11, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = secondary;
+    ctx.fillRect(centerX - width * 0.11, y + height * 0.11, width * 0.22, height * 0.12);
     return;
   }
 
   if (type === "cannon") {
-    const baseSize = Math.min(width, height) * 0.52;
+    const scale = Math.min(width, height);
+    ctx.fillStyle = "#252b31";
+    for (const wheelX of [centerX - scale * 0.22, centerX + scale * 0.22]) {
+      ctx.beginPath();
+      ctx.arc(wheelX, centerY + scale * 0.19, scale * 0.13, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    const baseSize = scale * 0.38;
+    ctx.fillStyle = primary;
     ctx.fillRect(centerX - baseSize / 2, centerY - baseSize / 2, baseSize, baseSize);
     ctx.strokeRect(centerX - baseSize / 2, centerY - baseSize / 2, baseSize, baseSize);
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, baseSize * 0.32, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
     ctx.fillStyle = secondary;
-    ctx.fillRect(centerX, centerY - baseSize * 0.11, width * 0.34, baseSize * 0.22);
+    ctx.fillRect(centerX - scale * 0.04, centerY - scale * 0.08, scale * 0.52, scale * 0.16);
     return;
   }
 
@@ -170,15 +238,21 @@ function drawBuildingDetail(ctx, type, x, y, width, height, primary, secondary) 
   }
 
   if (type === "mortar") {
+    const scale = Math.min(width, height);
     ctx.beginPath();
-    ctx.arc(centerX, centerY, Math.min(width, height) * 0.27, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY + scale * 0.12, scale * 0.27, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
     ctx.save();
-    ctx.translate(centerX, centerY);
+    ctx.translate(centerX - scale * 0.05, centerY);
     ctx.rotate(-0.55);
     ctx.fillStyle = secondary;
-    ctx.fillRect(0, -height * 0.1, width * 0.34, height * 0.2);
+    ctx.fillRect(0, -scale * 0.1, scale * 0.46, scale * 0.18);
+    ctx.fillStyle = "#11161b";
+    ctx.beginPath();
+    ctx.ellipse(scale * 0.46, -scale * 0.01, scale * 0.06, scale * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
     ctx.restore();
   }
 }
