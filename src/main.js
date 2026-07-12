@@ -3388,6 +3388,7 @@ function createVillageRaidGame() {
     targetWorld.raidBaseIndex = plan.baseIndex;
     targetWorld.raidWorld = createRaidWorld(plan.baseIndex, plan.composition);
     targetWorld.raidTerminalPending = false;
+    targetWorld.raidStartFramePending = true;
   }
 
   function finishBase(agent, targetWorld) {
@@ -3436,6 +3437,7 @@ function createVillageRaidGame() {
         raidBaseIndex: 0,
         raidWorld: null,
         raidTerminalPending: false,
+        raidStartFramePending: false,
         raidFrameYieldPending: false,
       };
     },
@@ -3448,6 +3450,7 @@ function createVillageRaidGame() {
       targetWorld.raidBaseIndex = 0;
       targetWorld.raidWorld = null;
       targetWorld.raidTerminalPending = false;
+      targetWorld.raidStartFramePending = false;
       targetWorld.raidFrameYieldPending = false;
       for (const agent of nextAgents) {
         agent.alive = false;
@@ -3468,9 +3471,15 @@ function createVillageRaidGame() {
     },
     stepWorld() {},
     updateAgent(agent, targetWorld) {
+      if (targetWorld.raidStartFramePending) {
+        targetWorld.raidStartFramePending = false;
+        targetWorld.raidFrameYieldPending = true;
+        return;
+      }
       if (targetWorld.raidTerminalPending) {
         targetWorld.raidTerminalPending = false;
         finishBase(agent, targetWorld);
+        targetWorld.raidStartFramePending = false;
         targetWorld.raidFrameYieldPending = true;
         return;
       }
