@@ -110,16 +110,25 @@ is the fastest completed lap time.
 
 `Village Raid HDV 3` is an AI-only top-down village attack simulation. Its local
 combat snapshot is versioned `th3-2026-07-11-v2`, its geometry is versioned
-`th3-reference-layouts-v2`, and both are dated `2026-07-11`. Each specimen
+`th3-reference-layouts-v3`, and both are dated `2026-07-11`. Each specimen
 first composes exactly 70 housing spaces, then deploys one troop at a time around
 the village perimeter. The 37 -> 18 -> 7 network observes phase, time,
 destruction, five inventory ratios, five living-troop ratios, and three channels
 for each of eight spatial sectors. Its outputs score the five troop types, select
 a perimeter position, and open or close the deployment gate.
 
-Every specimen attacks three fixed orthogonal arcade reconstructions based on
-the reference layouts, sequentially: `farm-111`, `war-26`, and `defence-104`.
-The full composition is restored for every base.
+Every specimen attacks three fixed layouts, sequentially: `farm-111`, `war-26`,
+and `defence-104`. Their gameplay topology is calibrated from references #111,
+#26, and #104 into an orthogonal arcade grid: wall connections, compartments,
+and relative building positions are preserved, but the procedural top-down art
+is not a pixel-identical copy of the isometric screenshots. The full composition
+is restored for every base.
+Each attack displays a simulation countdown from `180 s` to `0 s`, resetting to
+`180 s` at the start of each base. Hover over a living building to inspect its
+French name, level, and current HP; click a building to keep the same inspection
+visible, or click empty ground to clear it. Buildings remain recognizable through
+original procedural Canvas miniatures without permanent labels or external game
+assets.
 Fitness uses the strict mean destruction percentage across the three bases;
 time, remaining troops, walls, bombs, and stars never add shaping rewards. Each
 reference contains 22 buildings,
@@ -255,7 +264,8 @@ environment.
 - `Formula Circuit`: use up/W for gas, down/S for brake, and left/A or right/D
   for steering
 - `Village Raid HDV 3`: AI training only; inspect the current base, composition,
-  inventory, destruction, and provisional average in the read-only Raid panel
+  inventory, countdown, destruction, and provisional average in the read-only
+  Raid panel; hover or click a living building for its details
 - `Save` / `Load` / `Clear`: manage the best saved champion in local browser
   storage
 - `Preset difficulte`: apply easy, normal, hard, or chaos training settings
