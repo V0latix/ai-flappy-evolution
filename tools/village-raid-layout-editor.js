@@ -6,18 +6,23 @@ import {
   unprojectRaidPoint,
 } from "../src/village-raid-isometric.js";
 import {
+  applyLayoutEditorWallStroke,
+  commitLayoutEditorHistory,
   createLayoutEditorHistory,
   createLayoutEditorState,
   createScreenshotCalibration,
   LAYOUT_EDITOR_GRID,
   layoutEditorDraftKey,
   layoutEditorWallReserve,
+  moveLayoutEditorEntity,
   parseLayoutEditorDraft,
   projectEditorGridPoint,
   redoLayoutEditorHistory,
   resetLayoutEditorHistory,
   serializeLayoutEditorDraft,
   serializeLayoutEditorExport,
+  setLayoutEditorCalibration,
+  snapEditorGridPoint,
   undoLayoutEditorHistory,
   unprojectEditorScreenshotPoint,
   validateLayoutEditorState,
@@ -114,7 +119,10 @@ let selectedEntity = null;
 let preview = null;
 let activePointerId = null;
 let activePointerOwner = null;
+let pointerInteraction = null;
+let wallStroke = null;
 let validationFeedback = null;
+let interactionMessage = null;
 
 function currentHistory() {
   return histories.get(selectedBaseId);
@@ -182,7 +190,9 @@ function renderToolbar(state) {
       cancelPointerInteraction();
       selectedTool = tool.id;
       validationFeedback = null;
-      invalidateExport();
+      interactionMessage = tool.id === "align"
+        ? "Faites glisser une des trois poignees dans la vue de la capture."
+        : null;
       render();
     });
     return button;
@@ -252,6 +262,7 @@ function renderStatus() {
   const sourceMessage = sourceMessages.get(selectedBaseId);
   if (draftWarning) parts.push(`Avertissement de brouillon : ${draftWarning}.`);
   if (sourceMessage) parts.push(sourceMessage);
+  if (interactionMessage) parts.push(interactionMessage);
   if (validationFeedback) parts.push(validationFeedback.message);
   if (!parts.length) {
     parts.push("Brouillon local charge. Validez le village avant d'utiliser les coordonnees.");
@@ -260,7 +271,8 @@ function renderStatus() {
   elements.status.classList.toggle("is-invalid", validationFeedback?.kind === "error");
   elements.status.classList.toggle(
     "is-warning",
-    Boolean(draftWarning) || validationFeedback?.kind === "warning",
+    Boolean(draftWarning) || validationFeedback?.kind === "warning" ||
+      Boolean(interactionMessage && /impossible|hors|chevauche|insuffisante/i.test(interactionMessage)),
   );
 }
 
@@ -273,10 +285,14 @@ function renderSourceCanvas(state, activePreview) {
 
   const record = sourceImages.get(state.baseId);
   let drawRect = { x: 0, y: 0, width: canvas.width, height: canvas.height };
+  let naturalWidth = canvas.width;
+  let naturalHeight = canvas.height;
   if (record?.image?.complete && record.image.naturalWidth > 0) {
+    naturalWidth = record.image.naturalWidth;
+    naturalHeight = record.image.naturalHeight;
     drawRect = containRect(
-      record.image.naturalWidth,
-      record.image.naturalHeight,
+      naturalWidth,
+      naturalHeight,
       canvas.width,
       canvas.height,
     );
@@ -288,10 +304,17 @@ function renderSourceCanvas(state, activePreview) {
     context.fillText("Choisissez une capture locale pour cette vue", canvas.width / 2, 48);
   }
   if (record) record.drawRect = drawRect;
+  const transform = { drawRect, naturalWidth, naturalHeight };
+  const renderedState = activePreview?.kind === "alignment"
+    ? setLayoutEditorCalibration(state, activePreview.calibration)
+    : state;
 
-  drawSourceGrid(context, state.calibration, drawRect);
-  drawSourceEntities(context, state, drawRect, activePreview);
-  drawSourceValidationHighlights(context, state, drawRect);
+  drawSourceGrid(context, renderedState.calibration, transform);
+  drawSourceEntities(context, renderedState, transform, activePreview);
+  drawSourceValidationHighlights(context, renderedState, transform);
+  if (selectedTool === "align") {
+    drawCalibrationHandles(context, renderedState.calibration, transform, activePreview);
+  }
 }
 
 function renderIsoCanvas(state, activePreview, geometry) {
@@ -312,29 +335,31 @@ function renderIsoCanvas(state, activePreview, geometry) {
       );
     }
   }
-  if (activePreview?.cell) {
-    drawPolygon(
-      context,
-      projectRaidFootprint(geometry, { ...activePreview.cell, width: 1, height: 1 }),
-      "rgba(94, 234, 212, .22)",
-      "#5eead4",
-    );
+  if (activePreview?.kind === "entity") {
+    drawPolygon(context, projectRaidFootprint(geometry, normalizedEntity(activePreview.entity)),
+      previewFill(activePreview.valid), previewStroke(activePreview.valid));
+  }
+  if (activePreview?.kind === "wall-stroke") {
+    for (const cell of activePreview.cells) {
+      drawPolygon(context, projectRaidFootprint(geometry, { ...cell, width: 1, height: 1 }),
+        previewFill(activePreview.valid), previewStroke(activePreview.valid));
+    }
   }
   drawIsoValidationHighlights(context, geometry);
 }
 
-function drawSourceGrid(context, calibration, drawRect) {
+function drawSourceGrid(context, calibration, transform) {
   context.save();
   context.strokeStyle = "rgba(148, 163, 184, .22)";
   context.lineWidth = 1;
   for (let x = 0; x <= LAYOUT_EDITOR_GRID.width; x += 1) {
-    drawSourceLine(context, calibration, drawRect, { x, y: 0 }, {
+    drawSourceLine(context, calibration, transform, { x, y: 0 }, {
       x,
       y: LAYOUT_EDITOR_GRID.height,
     });
   }
   for (let y = 0; y <= LAYOUT_EDITOR_GRID.height; y += 1) {
-    drawSourceLine(context, calibration, drawRect, { x: 0, y }, {
+    drawSourceLine(context, calibration, transform, { x: 0, y }, {
       x: LAYOUT_EDITOR_GRID.width,
       y,
     });
@@ -342,16 +367,16 @@ function drawSourceGrid(context, calibration, drawRect) {
   context.restore();
 }
 
-function drawSourceLine(context, calibration, drawRect, from, to) {
-  const start = sourcePoint(calibration, drawRect, from);
-  const end = sourcePoint(calibration, drawRect, to);
+function drawSourceLine(context, calibration, transform, from, to) {
+  const start = sourcePoint(calibration, transform, from);
+  const end = sourcePoint(calibration, transform, to);
   context.beginPath();
   context.moveTo(start.x, start.y);
   context.lineTo(end.x, end.y);
   context.stroke();
 }
 
-function drawSourceEntities(context, state, drawRect, activePreview) {
+function drawSourceEntities(context, state, transform, activePreview) {
   for (const [kind, entities] of stateEntities(state)) {
     for (const entity of entities) {
       const width = entity.width ?? 1;
@@ -361,17 +386,40 @@ function drawSourceEntities(context, state, drawRect, activePreview) {
         { x: entity.x + width, y: entity.y },
         { x: entity.x + width, y: entity.y + height },
         { x: entity.x, y: entity.y + height },
-      ].map((point) => sourcePoint(state.calibration, drawRect, point));
+      ].map((point) => sourcePoint(state.calibration, transform, point));
       drawPolygon(context, points, entityFill(kind), entityStroke(kind, entity.id));
     }
   }
-  if (activePreview?.cell) {
-    const { x, y } = activePreview.cell;
-    const points = [
-      { x, y }, { x: x + 1, y }, { x: x + 1, y: y + 1 }, { x, y: y + 1 },
-    ].map((point) => sourcePoint(state.calibration, drawRect, point));
-    drawPolygon(context, points, "rgba(94, 234, 212, .22)", "#5eead4");
+  if (activePreview?.kind === "entity") {
+    drawSourcePreviewEntity(context, state.calibration, transform, activePreview.entity,
+      activePreview.valid);
   }
+  if (activePreview?.kind === "wall-stroke") {
+    for (const cell of activePreview.cells) {
+      drawSourcePreviewEntity(context, state.calibration, transform,
+        { ...cell, width: 1, height: 1 }, activePreview.valid);
+    }
+  }
+}
+
+function drawSourcePreviewEntity(context, calibration, transform, entity, valid) {
+  const width = entity.width ?? 1;
+  const height = entity.height ?? 1;
+  const points = [
+    { x: entity.x, y: entity.y },
+    { x: entity.x + width, y: entity.y },
+    { x: entity.x + width, y: entity.y + height },
+    { x: entity.x, y: entity.y + height },
+  ].map((point) => sourcePoint(calibration, transform, point));
+  drawPolygon(context, points, previewFill(valid), previewStroke(valid));
+}
+
+function previewFill(valid) {
+  return valid ? "rgba(94, 234, 212, .26)" : "rgba(251, 113, 133, .28)";
+}
+
+function previewStroke(valid) {
+  return valid ? "#5eead4" : "#fb7185";
 }
 
 function drawIsoGrid(context, geometry) {
@@ -410,12 +458,46 @@ function drawPolygon(context, points, fill, stroke) {
   context.stroke();
 }
 
-function sourcePoint(calibration, drawRect, point) {
+function sourcePoint(calibration, transform, point) {
   const projected = projectEditorGridPoint(calibration, point);
+  return sourceImageToCanvasPoint(transform, projected);
+}
+
+function sourceImageToCanvasPoint(transform, point) {
+  const { drawRect, naturalWidth, naturalHeight } = transform;
   return {
-    x: drawRect.x + projected.x / 960 * drawRect.width,
-    y: drawRect.y + projected.y / 560 * drawRect.height,
+    x: drawRect.x + point.x / naturalWidth * drawRect.width,
+    y: drawRect.y + point.y / naturalHeight * drawRect.height,
   };
+}
+
+function calibrationHandles(calibration) {
+  const { anchorPx, columnBasis, rowBasis, axisCells } = calibration;
+  return {
+    anchor: { ...anchorPx },
+    column: {
+      x: anchorPx.x + columnBasis.x * axisCells,
+      y: anchorPx.y + columnBasis.y * axisCells,
+    },
+    row: {
+      x: anchorPx.x + rowBasis.x * axisCells,
+      y: anchorPx.y + rowBasis.y * axisCells,
+    },
+  };
+}
+
+function drawCalibrationHandles(context, calibration, transform, activePreview) {
+  const colors = { anchor: "#f8fafc", column: "#5eead4", row: "#60a5fa" };
+  for (const [name, imagePoint] of Object.entries(calibrationHandles(calibration))) {
+    const point = sourceImageToCanvasPoint(transform, imagePoint);
+    context.beginPath();
+    context.arc(point.x, point.y, activePreview?.handle === name ? 10 : 7, 0, Math.PI * 2);
+    context.fillStyle = colors[name];
+    context.fill();
+    context.strokeStyle = "#0f172a";
+    context.lineWidth = 2;
+    context.stroke();
+  }
 }
 
 function stateEntities(state) {
@@ -633,6 +715,7 @@ function selectBase(baseId) {
   selectedBaseId = baseId;
   selectedEntity = null;
   validationFeedback = null;
+  interactionMessage = null;
   elements.sourceImage.value = "";
   invalidateExport();
   render();
@@ -661,9 +744,27 @@ function readDraft(baseId) {
 function replaceCurrentHistory(nextHistory) {
   histories.set(selectedBaseId, nextHistory);
   validationFeedback = null;
+  interactionMessage = null;
   invalidateExport();
   persistCurrentDraft();
   render();
+}
+
+function commitEditorState(nextState) {
+  const history = currentHistory();
+  const nextHistory = commitLayoutEditorHistory(history, nextState);
+  preview = null;
+  if (nextHistory === history) {
+    render();
+    return false;
+  }
+  histories.set(selectedBaseId, nextHistory);
+  validationFeedback = null;
+  interactionMessage = null;
+  persistCurrentDraft();
+  invalidateExport();
+  render();
+  return true;
 }
 
 function invalidateExport() {
@@ -680,9 +781,7 @@ elements.redoEditor.addEventListener("click", () => {
 });
 
 elements.resetEditor.addEventListener("click", () => {
-  const accepted = confirm(
-    "Revenir a la proposition de production de ce village ? Le brouillon courant sera remplace.",
-  );
+  const accepted = window.confirm("Reinitialiser ce village ?");
   if (!accepted) return;
   replaceCurrentHistory(resetLayoutEditorHistory(currentHistory()));
 });
@@ -760,7 +859,7 @@ function loadSourceImage(baseId, source, isObjectUrl = false) {
   }, { once: true });
   image.addEventListener("error", () => {
     if (sourceImages.get(baseId) !== record) return;
-    sourceMessages.set(baseId, "Impossible de charger l'image choisie.");
+    sourceMessages.set(baseId, "Image source illisible - choisissez un autre fichier");
     revokeSourceImage(baseId);
     if (baseId === selectedBaseId) render();
   }, { once: true });
@@ -781,38 +880,327 @@ function pointerPosition(event, canvas) {
   };
 }
 
-function previewCellFromEvent(event) {
-  const canvas = event.currentTarget;
-  const point = pointerPosition(event, canvas);
-  if (canvas === elements.isoCanvas) {
-    return unprojectRaidPoint(createRaidIsoGeometry(960, 560, LAYOUT_EDITOR_GRID), point);
-  }
-  const record = sourceImages.get(selectedBaseId);
-  const drawRect = record?.drawRect ?? { x: 0, y: 0, width: 960, height: 560 };
-  const screenshotPoint = {
-    x: (point.x - drawRect.x) / drawRect.width * 960,
-    y: (point.y - drawRect.y) / drawRect.height * 560,
-  };
-  return unprojectEditorScreenshotPoint(currentHistory().present.calibration, screenshotPoint);
+function pointInsideRect(point, rect) {
+  return point.x >= rect.x && point.y >= rect.y &&
+    point.x <= rect.x + rect.width && point.y <= rect.y + rect.height;
 }
 
-function beginPointerPreview(event) {
-  if (activePointerId !== null) return;
+function currentSourceTransform() {
+  const canvas = elements.sourceCanvas;
+  const record = sourceImages.get(selectedBaseId);
+  if (record?.image?.complete && record.image.naturalWidth > 0) {
+    return {
+      drawRect: record.drawRect ?? containRect(
+        record.image.naturalWidth,
+        record.image.naturalHeight,
+        canvas.width,
+        canvas.height,
+      ),
+      naturalWidth: record.image.naturalWidth,
+      naturalHeight: record.image.naturalHeight,
+    };
+  }
+  return {
+    drawRect: { x: 0, y: 0, width: canvas.width, height: canvas.height },
+    naturalWidth: canvas.width,
+    naturalHeight: canvas.height,
+  };
+}
+
+function sourceImagePoint(canvasPoint) {
+  const transform = currentSourceTransform();
+  if (!pointInsideRect(canvasPoint, transform.drawRect)) return null;
+  return {
+    x: (canvasPoint.x - transform.drawRect.x) / transform.drawRect.width *
+      transform.naturalWidth,
+    y: (canvasPoint.y - transform.drawRect.y) / transform.drawRect.height *
+      transform.naturalHeight,
+  };
+}
+
+function pointerGridPoint(canvas, event, state) {
+  const canvasPoint = pointerPosition(event, canvas);
+  if (canvas === elements.isoCanvas) {
+    return snapEditorGridPoint(unprojectRaidPoint(
+      createRaidIsoGeometry(960, 560, LAYOUT_EDITOR_GRID),
+      canvasPoint,
+    ));
+  }
+  const imagePoint = sourceImagePoint(canvasPoint);
+  if (!imagePoint) return null;
+  const world = unprojectEditorScreenshotPoint(state.calibration, imagePoint);
+  return world ? snapEditorGridPoint(world) : null;
+}
+
+function capturePointer(event) {
   activePointerId = event.pointerId;
   activePointerOwner = event.currentTarget;
   activePointerOwner.setPointerCapture(event.pointerId);
-  preview = { cell: previewCellFromEvent(event) };
+}
+
+function findDraggableEntity(state, cell) {
+  const candidates = [
+    ...state.traps.map((entity) => ({ kind: "trap", entity })),
+    ...state.buildings.map((entity) => ({ kind: "building", entity })),
+  ];
+  const selected = candidates.find(({ kind, entity }) =>
+    selectedEntity?.kind === kind && selectedEntity.id === entity.id &&
+    entityContainsCell(entity, cell)
+  );
+  return selected ?? candidates.find(({ entity }) => entityContainsCell(entity, cell)) ?? null;
+}
+
+function entityContainsCell(entity, cell) {
+  return cell.x >= entity.x && cell.x < entity.x + (entity.width ?? 1) &&
+    cell.y >= entity.y && cell.y < entity.y + (entity.height ?? 1);
+}
+
+function updateEntityPreview(cell) {
+  if (!pointerInteraction) return;
+  if (!cell) {
+    preview = {
+      ...preview,
+      kind: "entity",
+      cell: null,
+      valid: false,
+      error: "Pointeur hors de l'image source",
+    };
+    interactionMessage = preview.error;
+    render();
+    return;
+  }
+  const state = currentHistory().present;
+  const collection = pointerInteraction.selection.kind === "building"
+    ? state.buildings
+    : state.traps;
+  const entity = collection.find(({ id }) => id === pointerInteraction.selection.id);
+  if (!entity) return;
+  const candidateOrigin = {
+    x: cell.x - pointerInteraction.grabOffset.x,
+    y: cell.y - pointerInteraction.grabOffset.y,
+  };
+  const result = moveLayoutEditorEntity(state, pointerInteraction.selection, candidateOrigin);
+  preview = {
+    kind: "entity",
+    selection: pointerInteraction.selection,
+    entity: { ...entity, ...candidateOrigin },
+    cell: candidateOrigin,
+    valid: !result.error,
+    error: result.error,
+  };
+  interactionMessage = result.error;
   render();
 }
 
-function updatePointerPreview(event) {
-  if (event.pointerId !== activePointerId) return;
-  preview = { cell: previewCellFromEvent(event) };
+function commitEntityDrop(cell) {
+  const history = currentHistory();
+  const result = moveLayoutEditorEntity(history.present, selectedEntity, cell);
+  if (result.error) {
+    interactionMessage = result.error;
+    preview = null;
+    render();
+    return;
+  }
+  commitEditorState(result.state);
+}
+
+function startWallStroke(mode, cell) {
+  wallStroke = {
+    mode,
+    cells: new Map([[cellKey(cell), cell]]),
+    lastCell: cell,
+  };
+  extendWallStroke(cell);
+}
+
+function extendWallStroke(cell) {
+  if (!wallStroke || !cell) return;
+  for (const interpolated of interpolateWallCells(wallStroke.lastCell, cell)) {
+    wallStroke.cells.set(cellKey(interpolated), interpolated);
+  }
+  wallStroke.lastCell = cell;
+  const cells = [...wallStroke.cells.values()];
+  const result = applyLayoutEditorWallStroke(
+    currentHistory().present,
+    wallStroke.mode,
+    cells,
+  );
+  preview = {
+    kind: "wall-stroke",
+    mode: wallStroke.mode,
+    cells,
+    valid: !result.error,
+    error: result.error,
+  };
+  interactionMessage = result.error;
   render();
 }
 
-function endPointerPreview(event) {
-  if (event.pointerId !== activePointerId) return;
+function interpolateWallCells(from, to) {
+  const cells = [];
+  let x = from.x;
+  let y = from.y;
+  const dx = Math.abs(to.x - from.x);
+  const dy = Math.abs(to.y - from.y);
+  const stepX = from.x < to.x ? 1 : -1;
+  const stepY = from.y < to.y ? 1 : -1;
+  let error = dx - dy;
+  while (true) {
+    cells.push({ x, y });
+    if (x === to.x && y === to.y) break;
+    const doubled = error * 2;
+    if (doubled > -dy) {
+      error -= dy;
+      x += stepX;
+    }
+    if (doubled < dx) {
+      error += dx;
+      y += stepY;
+    }
+  }
+  return cells;
+}
+
+function finishWallStroke() {
+  if (!wallStroke) return;
+  const history = currentHistory();
+  const result = applyLayoutEditorWallStroke(
+    history.present,
+    wallStroke.mode,
+    [...wallStroke.cells.values()],
+  );
+  wallStroke = null;
+  preview = null;
+  if (result.error) {
+    interactionMessage = result.error;
+    render();
+    return;
+  }
+  commitEditorState(result.state);
+}
+
+function closestCalibrationHandle(event) {
+  const canvasPoint = pointerPosition(event, elements.sourceCanvas);
+  const transform = currentSourceTransform();
+  const handles = calibrationHandles(currentHistory().present.calibration);
+  let closest = null;
+  for (const [name, imagePoint] of Object.entries(handles)) {
+    const point = sourceImageToCanvasPoint(transform, imagePoint);
+    const distance = Math.hypot(point.x - canvasPoint.x, point.y - canvasPoint.y);
+    if (distance <= 18 && (!closest || distance < closest.distance)) {
+      closest = { name, distance };
+    }
+  }
+  return closest?.name ?? null;
+}
+
+function updateAlignmentPreview(event) {
+  const imagePoint = sourceImagePoint(pointerPosition(event, elements.sourceCanvas));
+  if (pointerInteraction?.kind !== "alignment") return;
+  if (!imagePoint) {
+    preview = null;
+    interactionMessage = "Poignee hors de l'image source - alignement annule.";
+    render();
+    return;
+  }
+  const handles = calibrationHandles(pointerInteraction.calibration);
+  handles[pointerInteraction.handle] = imagePoint;
+  preview = {
+    kind: "alignment",
+    handle: pointerInteraction.handle,
+    calibration: createScreenshotCalibration(
+      handles.anchor,
+      handles.column,
+      handles.row,
+      pointerInteraction.calibration.anchorGrid,
+      pointerInteraction.calibration.axisCells,
+    ),
+  };
+  interactionMessage = "Apercu d'alignement - relachez pour appliquer.";
+  render();
+}
+
+function beginPointerInteraction(event) {
+  if (activePointerId !== null || event.button !== 0) return;
+  const canvas = event.currentTarget;
+  const state = currentHistory().present;
+  if (selectedTool === "align") {
+    if (canvas !== elements.sourceCanvas) {
+      interactionMessage = "Les poignees d'alignement se reglent sur la capture originale.";
+      render();
+      return;
+    }
+    const handle = closestCalibrationHandle(event);
+    if (!handle) {
+      interactionMessage = "Saisissez une poignee blanche, cyan ou bleue.";
+      render();
+      return;
+    }
+    pointerInteraction = { kind: "alignment", handle, calibration: state.calibration };
+    capturePointer(event);
+    updateAlignmentPreview(event);
+    return;
+  }
+
+  const cell = pointerGridPoint(canvas, event, state);
+  if (!cell) return;
+  if (selectedTool === "move") {
+    const hit = findDraggableEntity(state, cell);
+    if (!hit) {
+      interactionMessage = "Selectionnez directement un batiment ou une bombe.";
+      render();
+      return;
+    }
+    selectedEntity = { kind: hit.kind, id: hit.entity.id };
+    pointerInteraction = {
+      kind: "entity",
+      selection: selectedEntity,
+      grabOffset: { x: cell.x - hit.entity.x, y: cell.y - hit.entity.y },
+    };
+    capturePointer(event);
+    updateEntityPreview(cell);
+    return;
+  }
+
+  if (selectedTool === "paint" || selectedTool === "erase") {
+    if (selectedTool === "paint" && layoutEditorWallReserve(state) === 0) {
+      interactionMessage = "Reserve de murs insuffisante.";
+      render();
+      return;
+    }
+    pointerInteraction = { kind: "wall-stroke" };
+    startWallStroke(selectedTool, cell);
+    capturePointer(event);
+  }
+}
+
+function updatePointerInteraction(event) {
+  if (event.pointerId !== activePointerId || !pointerInteraction) return;
+  if (pointerInteraction.kind === "alignment") {
+    updateAlignmentPreview(event);
+    return;
+  }
+  const cell = pointerGridPoint(event.currentTarget, event, currentHistory().present);
+  if (pointerInteraction.kind === "entity") updateEntityPreview(cell);
+  if (pointerInteraction.kind === "wall-stroke") extendWallStroke(cell);
+}
+
+function endPointerInteraction(event) {
+  if (event.pointerId !== activePointerId || !pointerInteraction) return;
+  updatePointerInteraction(event);
+  const completed = pointerInteraction;
+  if (completed.kind === "alignment" && preview?.calibration) {
+    commitEditorState(setLayoutEditorCalibration(currentHistory().present, preview.calibration));
+  } else if (completed.kind === "entity" && preview?.cell) {
+    if (preview.valid) commitEntityDrop(preview.cell);
+    else {
+      interactionMessage = preview.error;
+      preview = null;
+      render();
+    }
+  } else if (completed.kind === "wall-stroke") {
+    finishWallStroke();
+  }
   cancelPointerInteraction();
   render();
 }
@@ -823,22 +1211,49 @@ function cancelPointerInteraction() {
   if (ownsPointer) activePointerOwner.releasePointerCapture(activePointerId);
   activePointerId = null;
   activePointerOwner = null;
+  pointerInteraction = null;
+  wallStroke = null;
   preview = null;
 }
 
 for (const canvas of [elements.sourceCanvas, elements.isoCanvas]) {
-  canvas.addEventListener("pointerdown", beginPointerPreview);
-  canvas.addEventListener("pointermove", updatePointerPreview);
-  canvas.addEventListener("pointerup", endPointerPreview);
-  canvas.addEventListener("pointercancel", endPointerPreview);
-  canvas.addEventListener("lostpointercapture", endPointerPreview);
+  canvas.addEventListener("pointerdown", beginPointerInteraction);
+  canvas.addEventListener("pointermove", updatePointerInteraction);
+  canvas.addEventListener("pointerup", endPointerInteraction);
+  canvas.addEventListener("pointercancel", (event) => {
+    if (event.pointerId !== activePointerId) return;
+    cancelPointerInteraction();
+    interactionMessage = "Interaction annulee.";
+    render();
+  });
+  canvas.addEventListener("lostpointercapture", (event) => {
+    if (event.pointerId !== activePointerId) return;
+    cancelPointerInteraction();
+    render();
+  });
 }
 
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     cancelPointerInteraction();
+    interactionMessage = "Interaction annulee.";
     render();
+    return;
   }
+  if (!selectedEntity || selectedEntity.kind === "wall" ||
+    event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+  let delta = null;
+  if (event.key === "ArrowUp") delta = { x: 0, y: -1 };
+  if (event.key === "ArrowDown") delta = { x: 0, y: 1 };
+  if (event.key === "ArrowLeft") delta = { x: -1, y: 0 };
+  if (event.key === "ArrowRight") delta = { x: 1, y: 0 };
+  if (!delta) return;
+  const state = currentHistory().present;
+  const entities = selectedEntity.kind === "building" ? state.buildings : state.traps;
+  const entity = entities.find(({ id }) => id === selectedEntity.id);
+  if (!entity) return;
+  event.preventDefault();
+  commitEntityDrop({ x: entity.x + delta.x, y: entity.y + delta.y });
 });
 
 window.addEventListener("beforeunload", () => {

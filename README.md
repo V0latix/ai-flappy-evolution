@@ -270,6 +270,14 @@ environment.
   storage
 - `Preset difficulte`: apply easy, normal, hard, or chaos training settings
 
+### Manual Village Raid layout editor
+
+Serve the repository with a static server and open
+`/tools/village-raid-layout-editor.html`. Reference screenshots are selected
+locally or supplied as same-origin development URLs; they are never committed.
+Validate #111, #26, and #104 separately, then use the visible JSON exports as
+the only approved source for production layout changes.
+
 ## Notes
 
 This project intentionally uses simple geometric canvas art instead of

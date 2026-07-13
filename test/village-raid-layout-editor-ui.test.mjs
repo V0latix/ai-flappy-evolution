@@ -112,3 +112,69 @@ test("pointer cancellation releases capture on its owner before clearing state",
     "capture must be released before pointer state is cleared",
   );
 });
+
+test("editor script wires pointer keyboard draft and validation flows", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  assert.match(script, /pointerdown/);
+  assert.match(script, /pointermove/);
+  assert.match(script, /pointerup/);
+  assert.match(script, /keydown/);
+  assert.match(script, /layoutEditorDraftKey/);
+  assert.match(script, /serializeLayoutEditorExport/);
+  assert.match(script, /localStorage\.setItem/);
+  assert.match(script, /exportJson/);
+  assert.match(script, /moveLayoutEditorEntity/);
+  assert.match(script, /applyLayoutEditorWallStroke/);
+  assert.match(script, /commitLayoutEditorHistory/);
+  assert.match(script, /setLayoutEditorCalibration/);
+  assert.match(script, /snapEditorGridPoint/);
+});
+
+test("pointer mapping preserves contain letterboxing and entity grab offsets", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  assert.match(script, /function pointerGridPoint\(/);
+  assert.match(script, /function sourceImagePoint\(/);
+  assert.match(script, /record\.drawRect/);
+  assert.match(script, /record\.image\.naturalWidth/);
+  assert.match(script, /record\.image\.naturalHeight/);
+  assert.match(script, /function pointInsideRect\(/);
+  assert.match(script, /grabOffset/);
+  assert.match(script, /candidateOrigin/);
+});
+
+test("editor transactions cover three alignment handles and continuous wall strokes", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  assert.match(script, /function calibrationHandles\(/);
+  assert.match(script, /anchor/);
+  assert.match(script, /column/);
+  assert.match(script, /row/);
+  assert.match(script, /createScreenshotCalibration/);
+  assert.match(script, /function interpolateWallCells\(/);
+  assert.match(script, /function startWallStroke\(/);
+  assert.match(script, /function extendWallStroke\(/);
+  assert.match(script, /function finishWallStroke\(/);
+  assert.match(script, /wallStroke\.cells/);
+});
+
+test("completed edits share one commit path and invalidate visible exports", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  assert.match(script, /function commitEditorState\(/);
+  assert.match(script, /commitLayoutEditorHistory\(history, nextState\)/);
+  assert.match(script, /persistCurrentDraft\(\)/);
+  assert.match(script, /invalidateExport\(\)/);
+  assert.match(script, /event\.key === "ArrowUp"/);
+  assert.match(script, /event\.key === "ArrowDown"/);
+  assert.match(script, /event\.key === "ArrowLeft"/);
+  assert.match(script, /event\.key === "ArrowRight"/);
+});
+
+test("leaving the contained source image rejects an entity drop instead of reusing stale preview", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  const updateFunction = script.match(
+    /function updateEntityPreview\(cell\) \{(?<body>[\s\S]*?)\n\}/,
+  )?.groups?.body ?? "";
+  assert.match(updateFunction, /if \(!cell\)/);
+  assert.match(updateFunction, /valid: false/);
+  assert.match(updateFunction, /cell: null/);
+  assert.match(script, /cancelPointerInteraction\(\);\n  render\(\);/);
+});
