@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editeur manuel Village Raid</title>
+  <link rel="stylesheet" href="./village-raid-layout-editor.css">
+</head>
+<body>
+  <main class="editor-shell">
+    <header class="editor-heading">
+      <div>
+        <p class="eyebrow">Outil de developpement local</p>
+        <h1>Editeur manuel Village Raid</h1>
+      </div>
+      <p class="draft-notice">Les images choisies restent temporaires et ne sont jamais exportees.</p>
+    </header>
+
+    <div class="editor-toolbar" aria-label="Commandes de l'editeur">
+      <div id="baseTabs" class="button-group" role="group" aria-label="Village"></div>
+      <div id="toolButtons" class="button-group" role="group" aria-label="Outil"></div>
+      <div class="button-group history-controls" role="group" aria-label="Historique">
+        <button id="undoEditor" type="button">Annuler</button>
+        <button id="redoEditor" type="button">Retablir</button>
+        <button id="resetEditor" type="button">Reinitialiser</button>
+      </div>
+      <button id="validateEditor" class="primary-button" type="button">Valider ce village</button>
+    </div>
+
+    <div class="source-controls">
+      <label for="sourceImage">Choisir une image locale temporaire</label>
+      <input id="sourceImage" type="file" accept="image/png,image/jpeg,image/webp">
+      <span>PNG, JPEG ou WebP. Aucun envoi reseau.</span>
+    </div>
+
+    <div class="editor-feedback">
+      <p id="counts"></p>
+      <p id="status" role="status" aria-live="polite"></p>
+    </div>
+
+    <p id="canvasInstructions" class="canvas-instructions">
+      Selectionnez un element dans la liste pour le reperer dans les deux vues. Le deplacement
+      direct sera active dans l'etape suivante.
+    </p>
+    <section class="editor-workspace" aria-label="Vues synchronisees du village">
+      <figure class="editor-canvas-card">
+        <figcaption>Capture originale</figcaption>
+        <canvas id="sourceCanvas" width="960" height="560"
+          aria-label="Capture originale avec grille et elements du village"
+          aria-describedby="canvasInstructions"></canvas>
+      </figure>
+      <figure class="editor-canvas-card">
+        <figcaption>Vue isometrique</figcaption>
+        <canvas id="isoCanvas" width="960" height="560"
+          aria-label="Vue isometrique synchronisee du village"
+          aria-describedby="canvasInstructions"></canvas>
+      </figure>
+      <aside class="entity-panel">
+        <h2>Elements</h2>
+        <div id="entityList" aria-label="Elements du village"></div>
+      </aside>
+    </section>
+
+    <section id="exportPanel" hidden>
+      <h2>Coordonnees validees</h2>
+      <p>Ce resultat correspond a l'etat actuellement visible dans les deux vues.</p>
+      <textarea id="exportJson" readonly aria-label="Coordonnees JSON validees"></textarea>
+    </section>
+  </main>
+  <script type="module" src="./village-raid-layout-editor.js"></script>
+</body>
+</html>
