@@ -265,7 +265,159 @@ test("draft parsing preserves incomplete wall work", () => {
   const initial = createLayoutEditorState(farm, defaultCalibration);
   const incomplete = { ...initial, walls: initial.walls.slice(1) };
   const restored = parseLayoutEditorDraft(serializeLayoutEditorDraft(incomplete), initial);
-  assert.deepEqual(restored.state, incomplete);
+  assert.equal(restored.state.walls.length, incomplete.walls.length);
+  assert.deepEqual(
+    restored.state.walls.map(({ x, y }) => ({ x, y })),
+    incomplete.walls.map(({ x, y }) => ({ x, y })),
+  );
+  assert.equal(restored.warning, null);
+});
+
+test("draft parsing restores building coordinates with canonical metadata", () => {
+  const initial = createLayoutEditorState(farm, defaultCalibration);
+  const canonical = initial.buildings.find(({ id }) => id === "builderHut-1");
+  const draft = {
+    ...initial,
+    buildings: initial.buildings.map((building) => building.id === canonical.id
+      ? {
+        ...building,
+        x: 1,
+        y: 1,
+        type: "mortar",
+        level: 999,
+        width: 12,
+        height: 14,
+      }
+      : building),
+  };
+
+  const restored = parseLayoutEditorDraft(serializeLayoutEditorDraft(draft), initial);
+
+  assert.deepEqual(
+    restored.state.buildings.find(({ id }) => id === canonical.id),
+    { ...canonical, x: 1, y: 1 },
+  );
+  assert.equal(restored.warning, null);
+});
+
+test("draft parsing restores trap coordinates with canonical metadata", () => {
+  const initial = createLayoutEditorState(farm, defaultCalibration);
+  const canonical = initial.traps[0];
+  const draft = {
+    ...initial,
+    traps: initial.traps.map((trap) => trap.id === canonical.id
+      ? { ...trap, type: "wall", level: 999, width: 8, height: 9 }
+      : trap),
+  };
+
+  const restored = parseLayoutEditorDraft(serializeLayoutEditorDraft(draft), initial);
+
+  assert.deepEqual(
+    restored.state.traps.find(({ id }) => id === canonical.id),
+    canonical,
+  );
+  assert.equal(restored.warning, null);
+});
+
+test("draft parsing rejects null calibration", () => {
+  const initial = createLayoutEditorState(farm, defaultCalibration);
+  const serialized = serializeLayoutEditorDraft({ ...initial, calibration: null });
+
+  const restored = parseLayoutEditorDraft(serialized, initial);
+
+  assert.equal(restored.state, initial);
+  assert.match(restored.warning, /ignore/i);
+});
+
+test("draft parsing rejects non-finite calibration", () => {
+  const initial = createLayoutEditorState(farm, defaultCalibration);
+  const serialized = serializeLayoutEditorDraft(initial).replace(
+    '"axisCells":5',
+    '"axisCells":1e999',
+  );
+
+  const restored = parseLayoutEditorDraft(serialized, initial);
+
+  assert.equal(restored.state, initial);
+  assert.match(restored.warning, /ignore/i);
+});
+
+test("draft parsing rejects singular calibration", () => {
+  const initial = createLayoutEditorState(farm, defaultCalibration);
+  const singular = createScreenshotCalibration(
+    { x: 100, y: 100 },
+    { x: 200, y: 200 },
+    { x: 300, y: 300 },
+    initial.calibration.anchorGrid,
+  );
+  const serialized = serializeLayoutEditorDraft({ ...initial, calibration: singular });
+
+  const restored = parseLayoutEditorDraft(serialized, initial);
+
+  assert.equal(restored.state, initial);
+  assert.match(restored.warning, /ignore/i);
+});
+
+test("draft parsing strips unknown calibration fields", () => {
+  const initial = createLayoutEditorState(farm, defaultCalibration);
+  const calibration = {
+    ...initial.calibration,
+    injected: "ignore-me",
+    anchorPx: { ...initial.calibration.anchorPx, injected: "ignore-me" },
+  };
+
+  const restored = parseLayoutEditorDraft(
+    serializeLayoutEditorDraft({ ...initial, calibration }),
+    initial,
+  );
+
+  assert.deepEqual(restored.state.calibration, initial.calibration);
+  assert.equal(restored.warning, null);
+});
+
+test("draft parsing rejects malformed or non-array collections", () => {
+  const initial = createLayoutEditorState(farm, defaultCalibration);
+  const malformedCollections = [
+    { buildings: null },
+    { buildings: [null] },
+    { walls: {} },
+    { walls: [null] },
+    { traps: "invalid" },
+    { traps: [null] },
+  ];
+
+  for (const malformed of malformedCollections) {
+    const serialized = serializeLayoutEditorDraft({ ...initial, ...malformed });
+    const restored = parseLayoutEditorDraft(serialized, initial);
+    assert.equal(restored.state, initial);
+    assert.match(restored.warning, /ignore/i);
+  }
+});
+
+test("draft parsing rebuilds incomplete walls with canonical metadata", () => {
+  const initial = createLayoutEditorState(farm, defaultCalibration);
+  const draftCoordinates = initial.walls.slice(1).map(({ x, y }) => ({ x, y })).reverse();
+  const draft = {
+    ...initial,
+    walls: draftCoordinates.map(({ x, y }, index) => ({
+      id: `forged-wall-${index}`,
+      type: "building",
+      level: 999,
+      x,
+      y,
+    })),
+  };
+
+  const restored = parseLayoutEditorDraft(serializeLayoutEditorDraft(draft), initial);
+  const expected = draftCoordinates.map(({ x, y }, index) => ({
+    id: `wall-${index + 1}`,
+    type: initial.walls[0].type,
+    level: initial.walls[0].level,
+    x,
+    y,
+  }));
+
+  assert.deepEqual(restored.state.walls, expected);
   assert.equal(restored.warning, null);
 });
 

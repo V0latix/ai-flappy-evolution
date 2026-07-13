@@ -21,6 +21,14 @@ test("manual layout editor exposes every required control and local module", asy
   assert.doesNotMatch(html, /(?:src|href)=["']https?:\/\//i);
 });
 
+test("manual layout editor references the existing local favicon", async () => {
+  const html = await readFile(htmlUrl, "utf8");
+  assert.match(
+    html,
+    /<link[^>]+rel=["']icon["'][^>]+href=["']\.\.\/assets\/favicon\.svg["'][^>]*>/,
+  );
+});
+
 test("manual layout editor shell is accessible without a canvas pointer", async () => {
   const html = await readFile(htmlUrl, "utf8");
   assert.match(html, /id="baseTabs"[^>]*role="group"[^>]*aria-label="Village"/);
@@ -70,6 +78,49 @@ test("manual layout editor script wires startup, history and safe temporary imag
   assert.match(script, /exportPanel\.hidden = true/);
   assert.match(script, /serializeLayoutEditorDraft/);
   assert.match(script, /draftWarnings/);
+});
+
+test("malformed launch source URLs recover in French and allow final rendering", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  const loadSourceImageSource = script.match(
+    /function loadSourceImage\([\s\S]*?(?=\nfunction revokeSourceImage\()/,
+  )?.[0];
+  assert.ok(loadSourceImageSource, "loadSourceImage must remain extractable for regression coverage");
+
+  const sourceImages = new Map([["farm-111", { isObjectUrl: false }]]);
+  const sourceMessages = new Map();
+  let renderCount = 0;
+  const loadSourceImage = Function(
+    "sourceImages",
+    "sourceMessages",
+    "location",
+    "Image",
+    "revokeSourceImage",
+    "render",
+    "selectedBaseId",
+    `"use strict"; ${loadSourceImageSource}; return loadSourceImage;`,
+  )(
+    sourceImages,
+    sourceMessages,
+    { href: "http://127.0.0.1/editor", origin: "http://127.0.0.1" },
+    class UnexpectedImage {
+      constructor() {
+        throw new Error("an invalid URL must not create an image");
+      }
+    },
+    (baseId) => sourceImages.delete(baseId),
+    () => { renderCount += 1; },
+    "farm-111",
+  );
+
+  assert.doesNotThrow(() => loadSourceImage("farm-111", "http://["));
+  assert.equal(sourceImages.has("farm-111"), false);
+  assert.match(sourceMessages.get("farm-111"), /source refusee.*URL invalide/i);
+  assert.equal(renderCount, 1);
+  assert.match(
+    script,
+    /for \(const \[baseId, key\] of Object\.entries\(SOURCE_KEYS\)\)[\s\S]*?loadSourceImage\(baseId, source\);[\s\S]*?\n}\nrender\(\);/,
+  );
 });
 
 test("manual layout editor styling exposes responsive focus and disabled states", async () => {

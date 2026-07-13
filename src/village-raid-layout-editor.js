@@ -243,24 +243,108 @@ export function serializeLayoutEditorDraft(state) {
 export function parseLayoutEditorDraft(serialized, initialState) {
   try {
     const payload = JSON.parse(serialized);
-    if (payload.schema !== LAYOUT_EDITOR_SCHEMA || payload.state?.baseId !== initialState.baseId) {
+    if (!isRecord(payload) || payload.schema !== LAYOUT_EDITOR_SCHEMA ||
+      payload.state?.baseId !== initialState.baseId) {
       return { state: initialState, warning: "Brouillon incompatible ignore" };
     }
+    const draftState = payload.state;
+    if (!isRecord(draftState) || !isValidDraftCalibration(draftState.calibration) ||
+      !Array.isArray(draftState.buildings) || !Array.isArray(draftState.walls) ||
+      !Array.isArray(draftState.traps)) {
+      return { state: initialState, warning: "Brouillon invalide ignore" };
+    }
+    const buildings = restoreStableEntityCoordinates(
+      draftState.buildings,
+      initialState.buildings,
+    );
+    const traps = restoreStableEntityCoordinates(draftState.traps, initialState.traps);
+    const walls = restoreWallCoordinates(draftState.walls, initialState.walls);
+    if (!buildings || !traps || !walls) {
+      return { state: initialState, warning: "Brouillon invalide ignore" };
+    }
     const candidate = {
-      ...payload.state,
+      ...initialState,
+      calibration: restoreDraftCalibration(draftState.calibration),
       requiredBuildingIds: [...initialState.requiredBuildingIds],
       requiredTrapIds: [...initialState.requiredTrapIds],
+      buildings,
+      walls,
+      traps,
     };
     const validation = validateLayoutEditorState(candidate);
-    if (validation.errors.some((message) =>
-      /22 batiments|2 bombes|identifiants/i.test(message)
-    )) {
+    if (validation.errors.some((message) => !/50 murs places/i.test(message))) {
       return { state: initialState, warning: "Brouillon invalide ignore" };
     }
     return { state: candidate, warning: null };
   } catch {
     return { state: initialState, warning: "Brouillon illisible ignore" };
   }
+}
+
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isFinitePoint(point) {
+  return isRecord(point) && Number.isFinite(point.x) && Number.isFinite(point.y);
+}
+
+function isValidDraftCalibration(calibration) {
+  if (!isRecord(calibration) || !isFinitePoint(calibration.anchorPx) ||
+    !isFinitePoint(calibration.anchorGrid) || !isFinitePoint(calibration.columnBasis) ||
+    !isFinitePoint(calibration.rowBasis) || !Number.isFinite(calibration.axisCells) ||
+    calibration.axisCells <= 0) {
+    return false;
+  }
+  const determinant = calibration.columnBasis.x * calibration.rowBasis.y -
+    calibration.columnBasis.y * calibration.rowBasis.x;
+  return Number.isFinite(determinant) && Math.abs(determinant) >= 1e-8;
+}
+
+function restoreDraftCalibration(calibration) {
+  return {
+    anchorPx: clonePoint(calibration.anchorPx),
+    anchorGrid: clonePoint(calibration.anchorGrid),
+    columnBasis: clonePoint(calibration.columnBasis),
+    rowBasis: clonePoint(calibration.rowBasis),
+    axisCells: calibration.axisCells,
+  };
+}
+
+function restoreStableEntityCoordinates(draftEntities, initialEntities) {
+  if (draftEntities.length !== initialEntities.length) return null;
+  const draftById = new Map();
+  for (const entity of draftEntities) {
+    if (!isRecord(entity) || typeof entity.id !== "string" ||
+      !Number.isInteger(entity.x) || !Number.isInteger(entity.y) ||
+      draftById.has(entity.id)) {
+      return null;
+    }
+    draftById.set(entity.id, entity);
+  }
+  if (initialEntities.some(({ id }) => !draftById.has(id))) return null;
+  return initialEntities.map((entity) => {
+    const draft = draftById.get(entity.id);
+    return { ...entity, x: draft.x, y: draft.y };
+  });
+}
+
+function restoreWallCoordinates(draftWalls, initialWalls) {
+  if (draftWalls.length > initialWalls.length || !initialWalls.length) return null;
+  const canonical = initialWalls[0];
+  const restored = [];
+  for (const [index, wall] of draftWalls.entries()) {
+    if (!isRecord(wall) || !Number.isInteger(wall.x) || !Number.isInteger(wall.y)) {
+      return null;
+    }
+    restored.push({
+      ...canonical,
+      id: `wall-${index + 1}`,
+      x: wall.x,
+      y: wall.y,
+    });
+  }
+  return restored;
 }
 
 export function serializeLayoutEditorExport(state) {

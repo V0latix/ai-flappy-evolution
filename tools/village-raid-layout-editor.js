@@ -834,13 +834,20 @@ elements.sourceImage.addEventListener("change", () => {
 
 function loadSourceImage(baseId, source, isObjectUrl = false) {
   if (!isObjectUrl) {
-    const url = new URL(source, location.href);
-    if (url.origin !== location.origin) {
-      sourceMessages.set(baseId, "Source refusee : l'URL doit utiliser la meme origine.");
+    try {
+      const url = new URL(source, location.href);
+      if (url.origin !== location.origin) {
+        sourceMessages.set(baseId, "Source refusee : l'URL doit utiliser la meme origine.");
+        if (baseId === selectedBaseId) render();
+        return;
+      }
+      source = url.href;
+    } catch {
+      revokeSourceImage(baseId);
+      sourceMessages.set(baseId, "Source refusee : URL invalide.");
       if (baseId === selectedBaseId) render();
       return;
     }
-    source = url.href;
   }
 
   revokeSourceImage(baseId);
