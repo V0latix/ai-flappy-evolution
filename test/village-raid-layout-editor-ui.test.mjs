@@ -34,6 +34,13 @@ test("manual layout editor shell is accessible without a canvas pointer", async 
   assert.match(html, /<textarea id="exportJson"[^>]*readonly/);
 });
 
+test("manual layout editor instructions describe the available direct editing tools", async () => {
+  const html = await readFile(htmlUrl, "utf8");
+  assert.match(html, /deplacez les batiments et les pieges/i);
+  assert.match(html, /peignez ou effacez les murs/i);
+  assert.doesNotMatch(html, /etape suivante/i);
+});
+
 test("manual layout editor script wires startup, history and safe temporary images", async () => {
   const script = await readFile(scriptUrl, "utf8");
   for (const id of ["farm-111", "war-26", "defence-104"]) assert.match(script, new RegExp(id));
