@@ -4,6 +4,7 @@ import {
   RAID_BUILDING_NAMES,
   RAID_TROOP_VISUALS,
   drawRaidBuilding,
+  drawRaidBuildingArtwork,
   drawRaidBuildingTooltip,
   drawRaidTroop,
   drawRaidTroopKey,
@@ -153,6 +154,14 @@ test("the cannon keeps its square outline and draws wheels, a base, and a long b
   ).slice(1);
   assert.ok(detailRects.some((call) => call.width === call.height), "square masonry base");
   assert.ok(detailRects.some((call) => call.width >= call.height * 2.5), "long barrel");
+});
+
+test("editor building artwork keeps canonical cues without a combat health bar", () => {
+  const ctx = recordingContext();
+  drawRaidBuildingArtwork(ctx, buildingFixture("cannon"), 10, 12, 10);
+  assert.ok(ctx.calls.some(({ type }) => type === "strokeRect"));
+  assert.ok(ctx.calls.filter(({ type }) => type === "arc").length >= 2);
+  assert.equal(ctx.calls.some(({ fillStyle }) => fillStyle === "#48c774"), false);
 });
 
 test("the mortar draws a round turntable and a rotated open tube", () => {

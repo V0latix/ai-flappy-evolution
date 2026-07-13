@@ -81,8 +81,19 @@ export function drawRaidBuildingTooltip(ctx, building, offsetX, tile, canvasWidt
 export function drawRaidBuilding(ctx, building, offsetX, tile) {
   if (building.hp <= 0) return;
 
+  drawRaidBuildingArtwork(ctx, building, offsetX, 0, tile);
   const x = offsetX + building.x * tile;
   const y = building.y * tile;
+  const width = building.width * tile;
+
+  ctx.save();
+  drawHealthBar(ctx, x + 3, y - 5, width - 6, building.hp, building.maxHp);
+  ctx.restore();
+}
+
+export function drawRaidBuildingArtwork(ctx, building, offsetX, offsetY, tile) {
+  const x = offsetX + building.x * tile;
+  const y = offsetY + building.y * tile;
   const width = building.width * tile;
   const height = building.height * tile;
   const [primary, secondary] = BUILDING_PALETTES[building.type] ?? ["#88929d", "#3f4852"];
@@ -92,9 +103,7 @@ export function drawRaidBuilding(ctx, building, offsetX, tile) {
   ctx.fillRect(x + 2, y + 2, width - 4, height - 4);
   ctx.strokeStyle = "#171b20";
   ctx.strokeRect(x + 2, y + 2, width - 4, height - 4);
-
   drawBuildingDetail(ctx, building.type, x, y, width, height, primary, secondary);
-  drawHealthBar(ctx, x + 3, y - 5, width - 6, building.hp, building.maxHp);
   ctx.restore();
 }
 

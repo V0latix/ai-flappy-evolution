@@ -40,31 +40,30 @@
     </div>
 
     <p id="canvasInstructions" class="canvas-instructions">
-      Choisissez un outil, puis deplacez les batiments et les pieges dans l'une des deux vues.
-      Peignez ou effacez les murs cellule par cellule.
+      Glissez les batiments et bombes de la reserve vers la grille top-down.
+      Utilisez le pinceau pour les murs.
     </p>
     <section class="editor-workspace" aria-label="Vues synchronisees du village">
       <figure class="editor-canvas-card">
-        <figcaption>Capture originale</figcaption>
+        <figcaption>Photo originale</figcaption>
         <canvas id="sourceCanvas" width="960" height="560"
-          aria-label="Capture originale avec grille et elements du village"
-          aria-describedby="canvasInstructions"></canvas>
+          aria-label="Photo originale du village"></canvas>
       </figure>
       <figure class="editor-canvas-card">
-        <figcaption>Vue isometrique</figcaption>
-        <canvas id="isoCanvas" width="960" height="560"
-          aria-label="Vue isometrique synchronisee du village"
+        <figcaption>Vue top-down</figcaption>
+        <canvas id="topDownCanvas" width="960" height="560" tabindex="0"
+          aria-label="Grille top-down interactive du village"
           aria-describedby="canvasInstructions"></canvas>
       </figure>
       <aside class="entity-panel">
-        <h2>Elements</h2>
-        <div id="entityList" aria-label="Elements du village"></div>
+        <h2>Reserve et elements places</h2>
+        <div id="entityList" aria-label="Reserve et elements du village"></div>
       </aside>
     </section>
 
     <section id="exportPanel" hidden>
       <h2>Coordonnees validees</h2>
-      <p>Ce resultat correspond a l'etat actuellement visible dans les deux vues.</p>
+      <p>Ce resultat correspond a l'etat actuellement visible dans la vue top-down.</p>
       <textarea id="exportJson" readonly aria-label="Coordonnees JSON validees"></textarea>
     </section>
   </main>

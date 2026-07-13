@@ -195,6 +195,21 @@ canvas {
   text-align: left;
 }
 
+.entity-group--reserve button {
+  border-color: #8b6b32;
+  background: #211a0c;
+}
+
+.entity-group--placed button { border-color: #285e59; }
+
+.entity-group button[draggable="true"] { cursor: grab; }
+.entity-group button[draggable="true"]:active { cursor: grabbing; }
+
+#topDownCanvas:focus-visible {
+  outline: 3px solid #5eead4;
+  outline-offset: -3px;
+}
+
 .entity-group button small {
   display: block;
   color: #94a3b8;
