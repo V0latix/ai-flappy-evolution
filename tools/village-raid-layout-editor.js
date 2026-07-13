@@ -93,6 +93,7 @@ let pointerInteraction = null;
 let wallStroke = null;
 let validationFeedback = null;
 let interactionMessage = null;
+let interactionSeverity = null;
 
 function currentHistory() {
   return histories.get(selectedBaseId);
@@ -177,7 +178,7 @@ function renderToolbar(state) {
       selectedTool = tool.id;
       preview = null;
       validationFeedback = null;
-      interactionMessage = null;
+      setInteractionMessage(null);
       render();
     });
     return button;
@@ -273,7 +274,7 @@ function createEntityGroup(title, variant, entries, selection) {
         selectedTool = "move";
         preview = null;
         validationFeedback = null;
-        interactionMessage = null;
+        setInteractionMessage(null);
       });
       button.addEventListener("dragend", () => {
         preview = null;
@@ -291,6 +292,14 @@ function entityLabel(kind, entity) {
   return "Mur";
 }
 
+function classifyEditorStatus(validationKind, hasDraftWarning, severity) {
+  if (validationKind === "error" || severity === "error") return "error";
+  if (validationKind === "warning" || hasDraftWarning || severity === "warning") {
+    return "warning";
+  }
+  return null;
+}
+
 function renderStatus() {
   const parts = [];
   const draftWarning = draftWarnings.get(selectedBaseId);
@@ -302,13 +311,19 @@ function renderStatus() {
   if (!parts.length) {
     parts.push("Village vide pret. Placez les elements en vous aidant de la photo originale.");
   }
-  elements.status.textContent = parts.join(" ");
-  elements.status.classList.toggle("is-invalid", validationFeedback?.kind === "error");
-  elements.status.classList.toggle(
-    "is-warning",
-    Boolean(draftWarning) || validationFeedback?.kind === "warning" ||
-      Boolean(interactionMessage && /impossible|hors|chevauche|insuffisante/i.test(interactionMessage)),
+  const severity = classifyEditorStatus(
+    validationFeedback?.kind,
+    Boolean(draftWarning),
+    interactionSeverity,
   );
+  elements.status.textContent = parts.join(" ");
+  elements.status.classList.toggle("is-invalid", severity === "error");
+  elements.status.classList.toggle("is-warning", severity === "warning");
+}
+
+function setInteractionMessage(message, severity = null) {
+  interactionMessage = message;
+  interactionSeverity = message ? severity : null;
 }
 
 function renderSourceCanvas() {
@@ -626,7 +641,7 @@ function selectBase(baseId) {
   pointerInteraction = null;
   wallStroke = null;
   validationFeedback = null;
-  interactionMessage = null;
+  setInteractionMessage(null);
   elements.sourceImage.value = "";
   invalidateExport();
   render();
@@ -655,7 +670,7 @@ function readDraft(baseId) {
 function replaceCurrentHistory(nextHistory) {
   histories.set(selectedBaseId, nextHistory);
   validationFeedback = null;
-  interactionMessage = null;
+  setInteractionMessage(null);
   invalidateExport();
   persistCurrentDraft();
   render();
@@ -671,7 +686,7 @@ function commitEditorState(nextState) {
   }
   histories.set(selectedBaseId, nextHistory);
   validationFeedback = null;
-  interactionMessage = null;
+  setInteractionMessage(null);
   persistCurrentDraft();
   invalidateExport();
   render();
@@ -700,6 +715,7 @@ elements.resetEditor.addEventListener("click", () => {
 });
 
 elements.validateEditor.addEventListener("click", () => {
+  setInteractionMessage(null);
   const state = currentHistory().present;
   const result = validateLayoutEditorState(state);
   const highlights = createValidationHighlights(state, result);
@@ -743,7 +759,7 @@ elements.topDownCanvas.addEventListener("keydown", (event) => {
     event.preventDefault();
     cancelPointerInteraction();
     selectedEntity = null;
-    interactionMessage = "Selection annulee.";
+    setInteractionMessage("Selection annulee.");
     render();
     return;
   }
@@ -766,7 +782,7 @@ elements.topDownCanvas.addEventListener("keydown", (event) => {
     const destination = { x: entity.x + delta.x, y: entity.y + delta.y };
     const result = placeLayoutEditorEntity(state, selectedEntity, destination);
     if (result.error) {
-      interactionMessage = result.error;
+      setInteractionMessage(result.error, "error");
       preview = { entity: { ...entity, ...destination }, valid: false };
       render();
       return;
@@ -779,7 +795,7 @@ elements.topDownCanvas.addEventListener("keydown", (event) => {
     x: keyboardCell.x + delta.x,
     y: keyboardCell.y + delta.y,
   });
-  interactionMessage = null;
+  setInteractionMessage(null);
   render();
 });
 
@@ -789,7 +805,7 @@ elements.topDownCanvas.addEventListener("dragover", (event) => {
   event.dataTransfer.dropEffect = "move";
   const cell = topDownCellAtCanvasPoint(event);
   const entity = selectedEntity ? findSelectedEntity(currentHistory().present, selectedEntity) : null;
-  if (!cell || !entity || isLayoutEditorEntityPlaced(entity)) {
+  if (!cell || !isReserveDragEntity(entity)) {
     preview = null;
     renderTopDownOnly();
     return;
@@ -808,21 +824,31 @@ elements.topDownCanvas.addEventListener("drop", (event) => {
   event.preventDefault();
   const selection = parseEntityDragPayload(event.dataTransfer);
   if (!selection) {
-    interactionMessage = "Depot refuse : element glisse invalide.";
+    setInteractionMessage("Depot refuse : element glisse invalide.", "error");
+    preview = null;
+    render();
+    return;
+  }
+  const entity = findSelectedEntity(currentHistory().present, selection);
+  if (!isReserveDragEntity(entity)) {
+    setInteractionMessage(
+      "Depot refuse : cet element n'est plus disponible dans la reserve.",
+      "error",
+    );
     preview = null;
     render();
     return;
   }
   const cell = topDownCellAtCanvasPoint(event);
   if (!cell) {
-    interactionMessage = "Depot refuse : position hors de la grille.";
+    setInteractionMessage("Depot refuse : position hors de la grille.", "error");
     preview = null;
     render();
     return;
   }
   const result = placeLayoutEditorEntity(currentHistory().present, selection, cell);
   if (result.error) {
-    interactionMessage = result.error;
+    setInteractionMessage(`Depot refuse : ${result.error}.`, "error");
     preview = { entity: candidateEntity(selection, cell), valid: false };
     render();
     return;
@@ -873,7 +899,7 @@ elements.topDownCanvas.addEventListener("pointermove", (event) => {
   const cell = topDownCellAtCanvasPoint(event);
   if (!cell) {
     preview = null;
-    interactionMessage = "Relachez ici pour remettre l'element en reserve.";
+    setInteractionMessage("Relachez ici pour remettre l'element en reserve.");
     render();
     return;
   }
@@ -903,7 +929,7 @@ elements.topDownCanvas.addEventListener("pointerup", (event) => {
   );
   preview = null;
   if (result.error) {
-    interactionMessage = `${result.error}. Position precedente conservee.`;
+    setInteractionMessage(`${result.error}. Position precedente conservee.`, "error");
     render();
     return;
   }
@@ -913,7 +939,7 @@ elements.topDownCanvas.addEventListener("pointerup", (event) => {
 
 elements.topDownCanvas.addEventListener("pointercancel", () => {
   cancelPointerInteraction();
-  interactionMessage = "Geste annule. Position precedente conservee.";
+  setInteractionMessage("Geste annule. Position precedente conservee.");
   render();
 });
 
@@ -941,6 +967,10 @@ function findSelectedEntity(state, selection) {
     return state.traps.find(({ id }) => id === selection.id) ?? null;
   }
   return state.walls.find(({ id }) => id === selection.id) ?? null;
+}
+
+function isReserveDragEntity(entity) {
+  return Boolean(entity) && !isLayoutEditorEntityPlaced(entity);
 }
 
 function candidateEntity(selection, cell) {
@@ -975,37 +1005,37 @@ function updateEntityDragPreview(cell) {
     valid: !result.error,
   };
   keyboardCell = clampKeyboardCell(destination);
-  interactionMessage = result.error;
+  setInteractionMessage(result.error, result.error ? "error" : null);
   render();
 }
 
 function removeSelectedEntity() {
   if (!selectedEntity || selectedEntity.kind === "wall") {
-    interactionMessage = selectedEntity?.kind === "wall"
+    setInteractionMessage(selectedEntity?.kind === "wall"
       ? "Utilisez l'outil Effacer un mur."
-      : "Selectionnez d'abord un batiment ou une bombe.";
+      : "Selectionnez d'abord un batiment ou une bombe.");
     render();
     return false;
   }
   const result = removeLayoutEditorEntity(currentHistory().present, selectedEntity);
   if (result.error) {
-    interactionMessage = result.error;
+    setInteractionMessage(result.error, "error");
     render();
     return false;
   }
   if (result.state === currentHistory().present) {
-    interactionMessage = "Cet element est deja en reserve.";
+    setInteractionMessage("Cet element est deja en reserve.");
     render();
     return false;
   }
   preview = null;
-  interactionMessage = null;
+  setInteractionMessage(null);
   return commitEditorState(result.state);
 }
 
 function placeSelectedEntityAtKeyboardCell() {
   if (!selectedEntity || selectedEntity.kind === "wall") {
-    interactionMessage = "Selectionnez un batiment ou une bombe dans la reserve.";
+    setInteractionMessage("Selectionnez un batiment ou une bombe dans la reserve.");
     render();
     return false;
   }
@@ -1015,7 +1045,7 @@ function placeSelectedEntityAtKeyboardCell() {
     keyboardCell,
   );
   if (result.error) {
-    interactionMessage = result.error;
+    setInteractionMessage(result.error, "error");
     preview = { entity: candidateEntity(selectedEntity, keyboardCell), valid: false };
     render();
     return false;
@@ -1086,7 +1116,7 @@ function updateWallStrokeCandidate() {
     );
   wallStroke.candidateState = result.error ? wallStroke.initialState : result.state;
   wallStroke.error = result.error;
-  interactionMessage = result.error;
+  setInteractionMessage(result.error, result.error ? "error" : null);
   render();
 }
 
@@ -1096,12 +1126,12 @@ function finishWallStroke() {
   wallStroke = null;
   elements.topDownCanvas.releasePointerCapture?.(pointerId);
   if (error) {
-    interactionMessage = `${error}. Aucun mur du geste n'a ete modifie.`;
+    setInteractionMessage(`${error}. Aucun mur du geste n'a ete modifie.`, "error");
     render();
     return false;
   }
   if (candidateState === initialState) {
-    interactionMessage = "Aucun mur modifie.";
+    setInteractionMessage("Aucun mur modifie.");
     render();
     return false;
   }

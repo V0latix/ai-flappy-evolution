@@ -275,3 +275,38 @@ test("wall brush interpolates a stroke and commits it through finishWallStroke",
   assert.match(script, /wallStroke\.cells\.push\(\.\.\.interpolateGridCells/);
   assert.match(script, /return commitEditorState\(candidateState\)/);
 });
+
+test("invalid drop severity always renders red instead of warning yellow", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  const source = script.match(
+    /function classifyEditorStatus\([\s\S]*?(?=\nfunction renderStatus\()/,
+  )?.[0];
+  assert.ok(source, "status severity helper must remain extractable");
+  const classifyEditorStatus = Function(
+    `"use strict"; ${source}; return classifyEditorStatus;`,
+  )();
+
+  assert.equal(classifyEditorStatus(null, false, "error"), "error");
+  assert.equal(classifyEditorStatus("warning", true, "error"), "error");
+  assert.equal(classifyEditorStatus(null, true, null), "warning");
+  assert.equal(classifyEditorStatus(null, false, null), null);
+  assert.match(script, /status\.classList\.toggle\("is-invalid", severity === "error"\)/);
+  assert.match(script, /status\.classList\.toggle\("is-warning", severity === "warning"\)/);
+});
+
+test("HTML drag accepts only a canonical entity that remains in reserve", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  const source = script.match(
+    /function isReserveDragEntity\([\s\S]*?(?=\nfunction candidateEntity\()/,
+  )?.[0];
+  assert.ok(source, "reserve-only helper must remain extractable");
+  const isReserveDragEntity = Function(
+    "isLayoutEditorEntityPlaced",
+    `"use strict"; ${source}; return isReserveDragEntity;`,
+  )((entity) => Number.isInteger(entity.x) && Number.isInteger(entity.y));
+
+  assert.equal(isReserveDragEntity(null), false);
+  assert.equal(isReserveDragEntity({ id: "cannon-1", x: null, y: null }), true);
+  assert.equal(isReserveDragEntity({ id: "cannon-1", x: 3, y: 4 }), false);
+  assert.match(script, /if \(!isReserveDragEntity\(entity\)\)[\s\S]*?Depot refuse/);
+});
