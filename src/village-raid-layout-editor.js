@@ -174,6 +174,113 @@ function normalizeWalls(walls) {
     .map((wall, index) => ({ ...wall, id: `wall-${index + 1}` }));
 }
 
+export function validateLayoutEditorState(state) {
+  const errors = [];
+  const warnings = [];
+  if (state.buildings.length !== LAYOUT_EDITOR_COUNTS.buildings) {
+    errors.push("Le village doit contenir 22 batiments");
+  }
+  if (state.walls.length !== LAYOUT_EDITOR_COUNTS.walls) {
+    errors.push("Le village doit contenir 50 murs places");
+  }
+  if (state.traps.length !== LAYOUT_EDITOR_COUNTS.traps) {
+    errors.push("Le village doit contenir 2 bombes");
+  }
+  const buildingIds = state.buildings.map(({ id }) => id).sort();
+  const trapIds = state.traps.map(({ id }) => id).sort();
+  if (JSON.stringify(buildingIds) !== JSON.stringify(state.requiredBuildingIds)) {
+    errors.push("Les identifiants de batiment doivent correspondre au roster verrouille");
+  }
+  if (JSON.stringify(trapIds) !== JSON.stringify(state.requiredTrapIds)) {
+    errors.push("Les identifiants de bombe doivent correspondre au roster verrouille");
+  }
+  const entities = [...state.buildings, ...state.walls, ...state.traps];
+  const occupied = new Map();
+  for (const entity of entities) {
+    for (const { x, y } of entityCells(entity)) {
+      if (!insideGrid(x, y)) errors.push(`${entity.id} est hors du terrain`);
+      const key = cellKey(x, y);
+      if (occupied.has(key)) errors.push(`${entity.id} chevauche ${occupied.get(key)}`);
+      occupied.set(key, entity.id);
+    }
+  }
+  if (state.walls.length && wallComponentCount(state.walls) > 1) {
+    warnings.push("Les murs contiennent plusieurs groupes deconnectes");
+  }
+  return { valid: errors.length === 0, errors: [...new Set(errors)], warnings };
+}
+
+function wallComponentCount(walls) {
+  const remaining = new Set(walls.map(({ x, y }) => cellKey(x, y)));
+  let components = 0;
+  while (remaining.size) {
+    components += 1;
+    const queue = [remaining.values().next().value];
+    remaining.delete(queue[0]);
+    while (queue.length) {
+      const [x, y] = queue.shift().split(",").map(Number);
+      for (const neighbor of [
+        cellKey(x + 1, y),
+        cellKey(x - 1, y),
+        cellKey(x, y + 1),
+        cellKey(x, y - 1),
+      ]) {
+        if (remaining.delete(neighbor)) queue.push(neighbor);
+      }
+    }
+  }
+  return components;
+}
+
+export function layoutEditorDraftKey(baseId) {
+  return `neuro-evolution-arcade.village-raid-layout-editor.v1.${baseId}`;
+}
+
+export function serializeLayoutEditorDraft(state) {
+  return JSON.stringify({ schema: LAYOUT_EDITOR_SCHEMA, state });
+}
+
+export function parseLayoutEditorDraft(serialized, initialState) {
+  try {
+    const payload = JSON.parse(serialized);
+    if (payload.schema !== LAYOUT_EDITOR_SCHEMA || payload.state?.baseId !== initialState.baseId) {
+      return { state: initialState, warning: "Brouillon incompatible ignore" };
+    }
+    const candidate = {
+      ...payload.state,
+      requiredBuildingIds: [...initialState.requiredBuildingIds],
+      requiredTrapIds: [...initialState.requiredTrapIds],
+    };
+    const validation = validateLayoutEditorState(candidate);
+    if (validation.errors.some((message) =>
+      /22 batiments|2 bombes|identifiants/i.test(message)
+    )) {
+      return { state: initialState, warning: "Brouillon invalide ignore" };
+    }
+    return { state: candidate, warning: null };
+  } catch {
+    return { state: initialState, warning: "Brouillon illisible ignore" };
+  }
+}
+
+export function serializeLayoutEditorExport(state) {
+  const validation = validateLayoutEditorState(state);
+  if (!validation.valid) throw new Error(validation.errors.join("; "));
+  const sortCells = (left, right) => left.y - right.y || left.x - right.x;
+  const buildings = Object.fromEntries(
+    [...state.buildings].sort((left, right) => left.id.localeCompare(right.id))
+      .map(({ id, x, y }) => [id, [x, y]]),
+  );
+  return JSON.stringify({
+    schema: LAYOUT_EDITOR_SCHEMA,
+    baseId: state.baseId,
+    calibration: state.calibration,
+    buildings,
+    walls: [...state.walls].sort(sortCells).map(({ x, y }) => [x, y]),
+    traps: [...state.traps].sort(sortCells).map(({ x, y }) => [x, y]),
+  }, null, 2);
+}
+
 export function setLayoutEditorCalibration(state, calibration) {
   return { ...state, calibration: structuredClone(calibration) };
 }

@@ -6,14 +6,19 @@ import {
   createLayoutEditorHistory,
   createLayoutEditorState,
   createScreenshotCalibration,
+  layoutEditorDraftKey,
   layoutEditorWallReserve,
   moveLayoutEditorEntity,
+  parseLayoutEditorDraft,
   projectEditorGridPoint,
   redoLayoutEditorHistory,
   resetLayoutEditorHistory,
+  serializeLayoutEditorDraft,
+  serializeLayoutEditorExport,
   snapEditorGridPoint,
   undoLayoutEditorHistory,
   unprojectEditorScreenshotPoint,
+  validateLayoutEditorState,
 } from "../src/village-raid-layout-editor.js";
 import { LAYOUTS } from "../src/village-raid-data.js";
 
@@ -228,4 +233,87 @@ test("a new commit invalidates redo without mutating history arrays", () => {
   assert.deepEqual(undone.future, [firstMove]);
   assert.notEqual(recommitted.past, undone.past);
   assert.notEqual(recommitted.future, undone.future);
+});
+
+test("validation separates blocking inventory errors from wall connectivity warnings", () => {
+  const state = createLayoutEditorState(farm, defaultCalibration);
+  const valid = validateLayoutEditorState(state);
+  assert.equal(valid.valid, true);
+  const missingWall = { ...state, walls: state.walls.slice(1) };
+  const invalid = validateLayoutEditorState(missingWall);
+  assert.equal(invalid.valid, false);
+  assert.match(invalid.errors.join(" "), /50 murs/i);
+  const disconnected = { ...state, walls: state.walls.map((wall, index) =>
+    index === 0 ? { ...wall, x: 0, y: 31 } : wall
+  ) };
+  assert.match(validateLayoutEditorState(disconnected).warnings.join(" "), /deconnect/i);
+});
+
+test("draft parsing recovers compatible state and rejects corrupt input", () => {
+  const state = createLayoutEditorState(farm, defaultCalibration);
+  assert.equal(layoutEditorDraftKey("farm-111"),
+    "neuro-evolution-arcade.village-raid-layout-editor.v1.farm-111");
+  const restored = parseLayoutEditorDraft(serializeLayoutEditorDraft(state), state);
+  assert.deepEqual(restored.state, state);
+  assert.equal(restored.warning, null);
+  const corrupt = parseLayoutEditorDraft("not-json", state);
+  assert.equal(corrupt.state, state);
+  assert.match(corrupt.warning, /ignore/i);
+});
+
+test("draft parsing preserves incomplete wall work", () => {
+  const initial = createLayoutEditorState(farm, defaultCalibration);
+  const incomplete = { ...initial, walls: initial.walls.slice(1) };
+  const restored = parseLayoutEditorDraft(serializeLayoutEditorDraft(incomplete), initial);
+  assert.deepEqual(restored.state, incomplete);
+  assert.equal(restored.warning, null);
+});
+
+test("draft parsing never replaces the locked building inventory", () => {
+  const initial = createLayoutEditorState(farm, defaultCalibration);
+  const draft = {
+    ...initial,
+    requiredBuildingIds: initial.requiredBuildingIds.slice(1),
+    buildings: initial.buildings.slice(1),
+  };
+  const restored = parseLayoutEditorDraft(serializeLayoutEditorDraft(draft), initial);
+  assert.equal(restored.state, initial);
+  assert.match(restored.warning, /ignore/i);
+});
+
+test("draft parsing never replaces the locked trap inventory", () => {
+  const initial = createLayoutEditorState(farm, defaultCalibration);
+  const draft = {
+    ...initial,
+    requiredTrapIds: initial.requiredTrapIds.slice(1),
+    traps: initial.traps.slice(1),
+  };
+  const restored = parseLayoutEditorDraft(serializeLayoutEditorDraft(draft), initial);
+  assert.equal(restored.state, initial);
+  assert.match(restored.warning, /ignore/i);
+});
+
+test("export rejects incomplete wall work", () => {
+  const state = createLayoutEditorState(farm, defaultCalibration);
+  assert.throws(
+    () => serializeLayoutEditorExport({ ...state, walls: state.walls.slice(1) }),
+    /50 murs/i,
+  );
+});
+
+test("approved export is stable and sorts walls and bombs", () => {
+  const state = createLayoutEditorState(farm, defaultCalibration);
+  const first = serializeLayoutEditorExport(state);
+  const second = serializeLayoutEditorExport({
+    ...state,
+    walls: [...state.walls].reverse(),
+    traps: [...state.traps].reverse(),
+  });
+  assert.equal(first, second);
+  const payload = JSON.parse(first);
+  assert.equal(payload.schema, "village-raid-layout-editor-v1");
+  assert.equal(payload.baseId, "farm-111");
+  assert.equal(Object.keys(payload.buildings).length, 22);
+  assert.equal(payload.walls.length, 50);
+  assert.equal(payload.traps.length, 2);
 });
