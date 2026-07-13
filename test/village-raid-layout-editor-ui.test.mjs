@@ -198,3 +198,80 @@ test("completed edits share one commit path and invalidate visible exports", asy
   assert.match(script, /persistCurrentDraft\(\)/);
   assert.match(script, /invalidateExport\(\)/);
 });
+
+test("reserve drag and drop places only on the top-down grid", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  assert.match(script, /dragstart/);
+  assert.match(script, /dragover/);
+  assert.match(script, /drop/);
+  assert.match(script, /dataTransfer/);
+  assert.match(script, /placeLayoutEditorEntity/);
+  assert.match(script, /removeLayoutEditorEntity/);
+  assert.match(script, /elements\.topDownCanvas\.addEventListener\("drop"/);
+  assert.doesNotMatch(script, /elements\.sourceCanvas\.addEventListener\("pointerdown"/);
+});
+
+test("placed entities drag, remove, and edit by keyboard", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  assert.match(script, /pointerdown/);
+  assert.match(script, /pointermove/);
+  assert.match(script, /pointerup/);
+  assert.match(script, /event\.key === "Enter"/);
+  assert.match(script, /event\.key === "Delete"/);
+  assert.match(script, /event\.key === "Backspace"/);
+  assert.match(script, /keyboardCell/);
+  assert.match(script, /removeSelectedEntity/);
+});
+
+test("top-down edits keep one history path and invalidate stale exports", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  assert.match(script, /function commitEditorState\(/);
+  assert.match(script, /persistCurrentDraft\(\)/);
+  assert.match(script, /invalidateExport\(\)/);
+  assert.match(script, /finishWallStroke/);
+  assert.match(script, /resetLayoutEditorHistory/);
+});
+
+test("drag payload parsing rejects malformed or unsupported reserve entities", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  const helpers = script.match(
+    /function hasEntityDragType\([\s\S]*?(?=\nfunction findSelectedEntity\()/,
+  )?.[0];
+  assert.ok(helpers, "drag payload helpers must remain extractable");
+  const parseEntityDragPayload = Function(
+    "ENTITY_DRAG_TYPE",
+    `"use strict"; ${helpers}; return parseEntityDragPayload;`,
+  )("application/x-village-raid-entity");
+  const transfer = (value, types = ["application/x-village-raid-entity"]) => ({
+    types,
+    getData: () => value,
+  });
+
+  assert.equal(parseEntityDragPayload(transfer("{")), null);
+  assert.equal(parseEntityDragPayload(transfer('{"kind":"wall","id":"wall-1"}')), null);
+  assert.equal(parseEntityDragPayload(transfer('{"kind":"building","id":4}')), null);
+  assert.equal(parseEntityDragPayload(transfer("{}", [])), null);
+  assert.deepEqual(
+    parseEntityDragPayload(transfer('{"kind":"trap","id":"trap-1"}')),
+    { kind: "trap", id: "trap-1" },
+  );
+});
+
+test("wall brush interpolates a stroke and commits it through finishWallStroke", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  const source = script.match(
+    /function interpolateGridCells\([\s\S]*?(?=\nfunction updateWallStrokeCandidate\()/,
+  )?.[0];
+  assert.ok(source, "wall interpolation helper must remain extractable");
+  const interpolateGridCells = Function(
+    `"use strict"; ${source}; return interpolateGridCells;`,
+  )();
+  assert.deepEqual(interpolateGridCells({ x: 2, y: 3 }, { x: 5, y: 3 }), [
+    { x: 2, y: 3 },
+    { x: 3, y: 3 },
+    { x: 4, y: 3 },
+    { x: 5, y: 3 },
+  ]);
+  assert.match(script, /wallStroke\.cells\.push\(\.\.\.interpolateGridCells/);
+  assert.match(script, /return commitEditorState\(candidateState\)/);
+});

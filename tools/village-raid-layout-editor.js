@@ -16,7 +16,9 @@ import {
   layoutEditorDraftKey,
   layoutEditorReserveCounts,
   parseLayoutEditorDraft,
+  placeLayoutEditorEntity,
   redoLayoutEditorHistory,
+  removeLayoutEditorEntity,
   resetLayoutEditorHistory,
   serializeLayoutEditorDraft,
   serializeLayoutEditorExport,
@@ -43,6 +45,7 @@ const TOOLS = Object.freeze([
   { id: "paint", label: "Peindre un mur" },
   { id: "erase", label: "Effacer un mur" },
 ]);
+const ENTITY_DRAG_TYPE = "application/x-village-raid-entity";
 
 const elements = {
   baseTabs: document.querySelector("#baseTabs"),
@@ -85,7 +88,9 @@ let selectedBaseId = LAYOUTS[0].id;
 let selectedTool = "move";
 let selectedEntity = null;
 let preview = null;
-let keyboardCursor = { x: 0, y: 0 };
+let keyboardCell = { x: 24, y: 16 };
+let pointerInteraction = null;
+let wallStroke = null;
 let validationFeedback = null;
 let interactionMessage = null;
 
@@ -102,12 +107,22 @@ function render() {
     LAYOUT_EDITOR_GRID,
   );
   renderToolbar(state);
-  renderCounts(state);
+  const renderedState = wallStroke?.candidateState ?? state;
+  renderCounts(renderedState);
   renderReserveList(state, selectedEntity);
   renderStatus();
   renderSourceCanvas();
-  renderTopDownCanvas(state, preview, geometry);
+  renderTopDownCanvas(renderedState, preview, geometry);
   restoreEditorFocus(focusTarget);
+}
+
+function renderTopDownOnly() {
+  const geometry = createRaidTopDownGeometry(
+    elements.topDownCanvas.width,
+    elements.topDownCanvas.height,
+    LAYOUT_EDITOR_GRID,
+  );
+  renderTopDownCanvas(currentHistory().present, preview, geometry);
 }
 
 function captureEditorFocus() {
@@ -243,10 +258,28 @@ function createEntityGroup(title, variant, entries, selection) {
     button.append(label, detail);
     button.addEventListener("click", () => {
       selectedEntity = { kind, id: entity.id };
-      if (isLayoutEditorEntityPlaced(entity)) keyboardCursor = { x: entity.x, y: entity.y };
+      if (isLayoutEditorEntityPlaced(entity)) keyboardCell = { x: entity.x, y: entity.y };
       validationFeedback = null;
       render();
+      elements.topDownCanvas.focus({ preventScroll: true });
     });
+    if (variant === "reserve") {
+      button.addEventListener("dragstart", (event) => {
+        const selection = { kind, id: entity.id };
+        if (!event.dataTransfer) return;
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData(ENTITY_DRAG_TYPE, JSON.stringify(selection));
+        selectedEntity = selection;
+        selectedTool = "move";
+        preview = null;
+        validationFeedback = null;
+        interactionMessage = null;
+      });
+      button.addEventListener("dragend", () => {
+        preview = null;
+        render();
+      });
+    }
     section.append(button);
   }
   return section;
@@ -417,11 +450,16 @@ function drawTopDownPreview(context, activePreview, geometry) {
 }
 
 function drawKeyboardCursor(context, geometry) {
-  const rect = projectRaidTopDownFootprint(
-    geometry,
-    { ...keyboardCursor, width: 1, height: 1 },
-  );
-  drawRectOutline(context, rect, "rgba(255, 255, 255, .78)", 2);
+  const state = currentHistory().present;
+  const entity = selectedEntity ? findSelectedEntity(state, selectedEntity) : null;
+  const candidate = entity && selectedEntity.kind !== "wall"
+    ? { ...entity, ...keyboardCell }
+    : { ...keyboardCell, width: 1, height: 1 };
+  const result = entity && selectedEntity.kind !== "wall"
+    ? placeLayoutEditorEntity(state, selectedEntity, keyboardCell)
+    : { error: null };
+  const rect = projectRaidTopDownFootprint(geometry, normalizedEntity(candidate));
+  drawRectOutline(context, rect, result.error ? "#fb7185" : "#5eead4", 2);
 }
 
 function drawRectOutline(context, rect, color, width) {
@@ -584,7 +622,9 @@ function selectBase(baseId) {
   selectedBaseId = baseId;
   selectedEntity = null;
   preview = null;
-  keyboardCursor = { x: 0, y: 0 };
+  keyboardCell = { x: 24, y: 16 };
+  pointerInteraction = null;
+  wallStroke = null;
   validationFeedback = null;
   interactionMessage = null;
   elements.sourceImage.value = "";
@@ -654,6 +694,8 @@ elements.redoEditor.addEventListener("click", () => {
 elements.resetEditor.addEventListener("click", () => {
   if (!window.confirm("Reinitialiser ce village et remettre tous les elements en reserve ?")) return;
   selectedEntity = null;
+  pointerInteraction = null;
+  wallStroke = null;
   replaceCurrentHistory(resetLayoutEditorHistory(currentHistory()));
 });
 
@@ -678,7 +720,7 @@ elements.validateEditor.addEventListener("click", () => {
     highlights,
     message: result.warnings.length
       ? `Village valide avec avertissement : ${result.warnings.join(" ; ")}.`
-      : "Village valide. Les coordonnees correspondent a la vue top-down.",
+      : "Village top-down valide. Les coordonnees affichees sont pretes a etre relues.",
   };
   render();
 });
@@ -690,20 +732,6 @@ function highlightSummary(highlights) {
   return `A verifier - IDs : ${visible}${ids.length > 8 ? ` (+${ids.length - 8})` : ""}.`;
 }
 
-elements.topDownCanvas.addEventListener("click", (event) => {
-  const cell = topDownCellAtCanvasPoint(event);
-  if (!cell) return;
-  keyboardCursor = cell;
-  if (selectedTool === "paint" || selectedTool === "erase") {
-    const result = applyLayoutEditorWallStroke(currentHistory().present, selectedTool, [cell]);
-    interactionMessage = result.error;
-    if (!result.error) commitEditorState(result.state);
-    else render();
-    return;
-  }
-  render();
-});
-
 elements.topDownCanvas.addEventListener("keydown", (event) => {
   const directions = {
     ArrowUp: { x: 0, y: -1 },
@@ -711,15 +739,380 @@ elements.topDownCanvas.addEventListener("keydown", (event) => {
     ArrowLeft: { x: -1, y: 0 },
     ArrowRight: { x: 1, y: 0 },
   };
+  if (event.key === "Escape") {
+    event.preventDefault();
+    cancelPointerInteraction();
+    selectedEntity = null;
+    interactionMessage = "Selection annulee.";
+    render();
+    return;
+  }
+  if (event.key === "Delete" || event.key === "Backspace") {
+    event.preventDefault();
+    removeSelectedEntity();
+    return;
+  }
+  if (event.key === "Enter") {
+    event.preventDefault();
+    placeSelectedEntityAtKeyboardCell();
+    return;
+  }
   const delta = directions[event.key];
   if (!delta) return;
   event.preventDefault();
-  keyboardCursor = {
-    x: Math.max(0, Math.min(LAYOUT_EDITOR_GRID.width - 1, keyboardCursor.x + delta.x)),
-    y: Math.max(0, Math.min(LAYOUT_EDITOR_GRID.height - 1, keyboardCursor.y + delta.y)),
-  };
+  const state = currentHistory().present;
+  const entity = selectedEntity ? findSelectedEntity(state, selectedEntity) : null;
+  if (entity && selectedEntity.kind !== "wall" && isLayoutEditorEntityPlaced(entity)) {
+    const destination = { x: entity.x + delta.x, y: entity.y + delta.y };
+    const result = placeLayoutEditorEntity(state, selectedEntity, destination);
+    if (result.error) {
+      interactionMessage = result.error;
+      preview = { entity: { ...entity, ...destination }, valid: false };
+      render();
+      return;
+    }
+    keyboardCell = destination;
+    commitEditorState(result.state);
+    return;
+  }
+  keyboardCell = clampKeyboardCell({
+    x: keyboardCell.x + delta.x,
+    y: keyboardCell.y + delta.y,
+  });
+  interactionMessage = null;
   render();
 });
+
+elements.topDownCanvas.addEventListener("dragover", (event) => {
+  if (!hasEntityDragType(event.dataTransfer)) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  const cell = topDownCellAtCanvasPoint(event);
+  const entity = selectedEntity ? findSelectedEntity(currentHistory().present, selectedEntity) : null;
+  if (!cell || !entity || isLayoutEditorEntityPlaced(entity)) {
+    preview = null;
+    renderTopDownOnly();
+    return;
+  }
+  const result = placeLayoutEditorEntity(currentHistory().present, selectedEntity, cell);
+  preview = { entity: { ...entity, ...cell }, valid: !result.error };
+  renderTopDownOnly();
+});
+
+elements.topDownCanvas.addEventListener("dragleave", () => {
+  preview = null;
+  renderTopDownOnly();
+});
+
+elements.topDownCanvas.addEventListener("drop", (event) => {
+  event.preventDefault();
+  const selection = parseEntityDragPayload(event.dataTransfer);
+  if (!selection) {
+    interactionMessage = "Depot refuse : element glisse invalide.";
+    preview = null;
+    render();
+    return;
+  }
+  const cell = topDownCellAtCanvasPoint(event);
+  if (!cell) {
+    interactionMessage = "Depot refuse : position hors de la grille.";
+    preview = null;
+    render();
+    return;
+  }
+  const result = placeLayoutEditorEntity(currentHistory().present, selection, cell);
+  if (result.error) {
+    interactionMessage = result.error;
+    preview = { entity: candidateEntity(selection, cell), valid: false };
+    render();
+    return;
+  }
+  selectedEntity = selection;
+  selectedTool = "move";
+  keyboardCell = cell;
+  commitEditorState(result.state);
+});
+
+elements.topDownCanvas.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0) return;
+  elements.topDownCanvas.focus({ preventScroll: true });
+  const cell = topDownCellAtCanvasPoint(event);
+  if (!cell) return;
+  keyboardCell = cell;
+  if (selectedTool === "paint" || selectedTool === "erase") {
+    event.preventDefault();
+    beginWallStroke(event.pointerId, cell);
+    return;
+  }
+  const hit = hitTestPlacedEntity(currentHistory().present, cell);
+  if (!hit) {
+    selectedEntity = null;
+    preview = null;
+    render();
+    return;
+  }
+  event.preventDefault();
+  selectedEntity = hit.selection;
+  pointerInteraction = {
+    pointerId: event.pointerId,
+    selection: hit.selection,
+    grabOffset: { x: cell.x - hit.entity.x, y: cell.y - hit.entity.y },
+  };
+  elements.topDownCanvas.setPointerCapture?.(event.pointerId);
+  preview = { entity: { ...hit.entity }, valid: true };
+  render();
+});
+
+elements.topDownCanvas.addEventListener("pointermove", (event) => {
+  if (wallStroke?.pointerId === event.pointerId) {
+    const cell = topDownCellAtCanvasPoint(event);
+    if (cell) extendWallStroke(cell);
+    return;
+  }
+  if (pointerInteraction?.pointerId !== event.pointerId) return;
+  const cell = topDownCellAtCanvasPoint(event);
+  if (!cell) {
+    preview = null;
+    interactionMessage = "Relachez ici pour remettre l'element en reserve.";
+    render();
+    return;
+  }
+  updateEntityDragPreview(cell);
+});
+
+elements.topDownCanvas.addEventListener("pointerup", (event) => {
+  if (wallStroke?.pointerId === event.pointerId) {
+    finishWallStroke();
+    return;
+  }
+  if (pointerInteraction?.pointerId !== event.pointerId) return;
+  const interaction = pointerInteraction;
+  pointerInteraction = null;
+  elements.topDownCanvas.releasePointerCapture?.(event.pointerId);
+  const cell = topDownCellAtCanvasPoint(event);
+  if (!cell) {
+    preview = null;
+    removeSelectedEntity();
+    return;
+  }
+  const destination = dragDestination(cell, interaction.grabOffset);
+  const result = placeLayoutEditorEntity(
+    currentHistory().present,
+    interaction.selection,
+    destination,
+  );
+  preview = null;
+  if (result.error) {
+    interactionMessage = `${result.error}. Position precedente conservee.`;
+    render();
+    return;
+  }
+  keyboardCell = destination;
+  commitEditorState(result.state);
+});
+
+elements.topDownCanvas.addEventListener("pointercancel", () => {
+  cancelPointerInteraction();
+  interactionMessage = "Geste annule. Position precedente conservee.";
+  render();
+});
+
+function hasEntityDragType(dataTransfer) {
+  return Boolean(dataTransfer) && Array.from(dataTransfer.types ?? []).includes(ENTITY_DRAG_TYPE);
+}
+
+function parseEntityDragPayload(dataTransfer) {
+  if (!hasEntityDragType(dataTransfer)) return null;
+  try {
+    const selection = JSON.parse(dataTransfer.getData(ENTITY_DRAG_TYPE));
+    if (!selection || !["building", "trap"].includes(selection.kind) ||
+      typeof selection.id !== "string") return null;
+    return selection;
+  } catch {
+    return null;
+  }
+}
+
+function findSelectedEntity(state, selection) {
+  if (selection.kind === "building") {
+    return state.buildings.find(({ id }) => id === selection.id) ?? null;
+  }
+  if (selection.kind === "trap") {
+    return state.traps.find(({ id }) => id === selection.id) ?? null;
+  }
+  return state.walls.find(({ id }) => id === selection.id) ?? null;
+}
+
+function candidateEntity(selection, cell) {
+  const entity = findSelectedEntity(currentHistory().present, selection);
+  return entity ? { ...entity, ...cell } : null;
+}
+
+function hitTestPlacedEntity(state, cell) {
+  const entries = [
+    ...state.traps.filter(isLayoutEditorEntityPlaced)
+      .map((entity) => ({ selection: { kind: "trap", id: entity.id }, entity })),
+    ...state.buildings.filter(isLayoutEditorEntityPlaced)
+      .map((entity) => ({ selection: { kind: "building", id: entity.id }, entity })),
+  ];
+  return entries.find(({ entity }) => entityFootprintCells(entity)
+    .some(({ x, y }) => x === cell.x && y === cell.y)) ?? null;
+}
+
+function dragDestination(cell, grabOffset) {
+  return { x: cell.x - grabOffset.x, y: cell.y - grabOffset.y };
+}
+
+function updateEntityDragPreview(cell) {
+  const destination = dragDestination(cell, pointerInteraction.grabOffset);
+  const result = placeLayoutEditorEntity(
+    currentHistory().present,
+    pointerInteraction.selection,
+    destination,
+  );
+  preview = {
+    entity: candidateEntity(pointerInteraction.selection, destination),
+    valid: !result.error,
+  };
+  keyboardCell = clampKeyboardCell(destination);
+  interactionMessage = result.error;
+  render();
+}
+
+function removeSelectedEntity() {
+  if (!selectedEntity || selectedEntity.kind === "wall") {
+    interactionMessage = selectedEntity?.kind === "wall"
+      ? "Utilisez l'outil Effacer un mur."
+      : "Selectionnez d'abord un batiment ou une bombe.";
+    render();
+    return false;
+  }
+  const result = removeLayoutEditorEntity(currentHistory().present, selectedEntity);
+  if (result.error) {
+    interactionMessage = result.error;
+    render();
+    return false;
+  }
+  if (result.state === currentHistory().present) {
+    interactionMessage = "Cet element est deja en reserve.";
+    render();
+    return false;
+  }
+  preview = null;
+  interactionMessage = null;
+  return commitEditorState(result.state);
+}
+
+function placeSelectedEntityAtKeyboardCell() {
+  if (!selectedEntity || selectedEntity.kind === "wall") {
+    interactionMessage = "Selectionnez un batiment ou une bombe dans la reserve.";
+    render();
+    return false;
+  }
+  const result = placeLayoutEditorEntity(
+    currentHistory().present,
+    selectedEntity,
+    keyboardCell,
+  );
+  if (result.error) {
+    interactionMessage = result.error;
+    preview = { entity: candidateEntity(selectedEntity, keyboardCell), valid: false };
+    render();
+    return false;
+  }
+  return commitEditorState(result.state);
+}
+
+function clampKeyboardCell(cell) {
+  return {
+    x: Math.max(0, Math.min(LAYOUT_EDITOR_GRID.width - 1, Math.trunc(cell.x))),
+    y: Math.max(0, Math.min(LAYOUT_EDITOR_GRID.height - 1, Math.trunc(cell.y))),
+  };
+}
+
+function beginWallStroke(pointerId, cell) {
+  wallStroke = {
+    pointerId,
+    initialState: currentHistory().present,
+    cells: [cell],
+    candidateState: currentHistory().present,
+    error: null,
+  };
+  elements.topDownCanvas.setPointerCapture?.(pointerId);
+  updateWallStrokeCandidate();
+}
+
+function extendWallStroke(cell) {
+  const last = wallStroke.cells.at(-1);
+  if (last.x === cell.x && last.y === cell.y) return;
+  wallStroke.cells.push(...interpolateGridCells(last, cell).slice(1));
+  updateWallStrokeCandidate();
+}
+
+function interpolateGridCells(start, end) {
+  const cells = [];
+  let x = start.x;
+  let y = start.y;
+  const dx = Math.abs(end.x - start.x);
+  const dy = Math.abs(end.y - start.y);
+  const stepX = start.x < end.x ? 1 : -1;
+  const stepY = start.y < end.y ? 1 : -1;
+  let error = dx - dy;
+  while (true) {
+    cells.push({ x, y });
+    if (x === end.x && y === end.y) return cells;
+    const doubled = error * 2;
+    if (doubled > -dy) {
+      error -= dy;
+      x += stepX;
+    }
+    if (doubled < dx) {
+      error += dx;
+      y += stepY;
+    }
+  }
+}
+
+function updateWallStrokeCandidate() {
+  const occupiedWalls = new Set(wallStroke.initialState.walls.map(cellKey));
+  const paintsExistingWall = selectedTool === "paint" &&
+    wallStroke.cells.some((cell) => occupiedWalls.has(cellKey(cell)));
+  const result = paintsExistingWall
+    ? { state: wallStroke.initialState, error: "Un mur occupe deja une case du geste" }
+    : applyLayoutEditorWallStroke(
+      wallStroke.initialState,
+      selectedTool,
+      wallStroke.cells,
+    );
+  wallStroke.candidateState = result.error ? wallStroke.initialState : result.state;
+  wallStroke.error = result.error;
+  interactionMessage = result.error;
+  render();
+}
+
+function finishWallStroke() {
+  if (!wallStroke) return false;
+  const { pointerId, initialState, candidateState, error } = wallStroke;
+  wallStroke = null;
+  elements.topDownCanvas.releasePointerCapture?.(pointerId);
+  if (error) {
+    interactionMessage = `${error}. Aucun mur du geste n'a ete modifie.`;
+    render();
+    return false;
+  }
+  if (candidateState === initialState) {
+    interactionMessage = "Aucun mur modifie.";
+    render();
+    return false;
+  }
+  return commitEditorState(candidateState);
+}
+
+function cancelPointerInteraction() {
+  pointerInteraction = null;
+  wallStroke = null;
+  preview = null;
+}
 
 function topDownCellAtCanvasPoint(event) {
   const canvas = elements.topDownCanvas;

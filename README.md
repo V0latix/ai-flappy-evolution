@@ -272,11 +272,13 @@ environment.
 
 ### Manual Village Raid layout editor
 
-Serve the repository with a static server and open
-`/tools/village-raid-layout-editor.html`. Reference screenshots are selected
-locally or supplied as same-origin development URLs; they are never committed.
-Validate #111, #26, and #104 separately, then use the visible JSON exports as
-the only approved source for production layout changes.
+Serve the repository and open `/tools/village-raid-layout-editor.html`. Keep the
+local reference photo on the left, then drag the 22 buildings and 2 bombs from
+reserve onto the empty top-down grid. Paint all 50 walls with the wall brush.
+Each village keeps an independent local v2 draft. Validate #111, #26, and #104
+separately and use only the visible approved JSON exports for a later
+production-layout change. Reference screenshots are temporary and are never
+committed or exported.
 
 ## Notes
 
