@@ -172,8 +172,11 @@ canvas {
   display: block;
   width: 100%;
   height: auto;
-  touch-action: none;
 }
+
+#sourceCanvas { touch-action: auto; }
+
+#topDownCanvas { touch-action: none; }
 
 #entityList {
   max-height: 560px;

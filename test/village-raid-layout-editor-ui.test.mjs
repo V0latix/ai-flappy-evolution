@@ -132,7 +132,9 @@ test("manual layout editor styling exposes responsive focus and disabled states"
   assert.match(css, /:focus-visible/);
   assert.match(css, /button:disabled/);
   assert.match(css, /@media\s*\(max-width:\s*1100px\)/);
-  assert.match(css, /touch-action:\s*none/);
+  assert.match(css, /#topDownCanvas\s*\{[^}]*touch-action:\s*none/s);
+  assert.match(css, /#sourceCanvas\s*\{[^}]*touch-action:\s*auto/s);
+  assert.doesNotMatch(css, /(?:^|\n)canvas\s*\{[^}]*touch-action:\s*none/s);
   assert.match(css, /button\[aria-pressed="true"\]/);
   assert.doesNotMatch(css, /@import|url\s*\(/i);
 });
