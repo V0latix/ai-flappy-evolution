@@ -26,6 +26,15 @@ export function projectRaidPoint(geometry, point) {
   };
 }
 
+export function unprojectRaidPoint(geometry, point) {
+  const horizontal = (point.x - geometry.originX) / geometry.halfTileWidth;
+  const vertical = (point.y - geometry.originY) / geometry.halfTileHeight;
+  return {
+    x: round((horizontal + vertical) / 2),
+    y: round((vertical - horizontal) / 2),
+  };
+}
+
 export function projectRaidFootprint(geometry, entity) {
   const width = entity.width ?? 0;
   const height = entity.height ?? 0;

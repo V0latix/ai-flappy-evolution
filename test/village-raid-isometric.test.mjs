@@ -7,6 +7,7 @@ import {
   pointInConvexPolygon,
   projectRaidFootprint,
   projectRaidPoint,
+  unprojectRaidPoint,
 } from "../src/village-raid-isometric.js";
 
 const GRID = Object.freeze({ width: 48, height: 32 });
@@ -19,6 +20,14 @@ test("isometric geometry fits the complete 48x32 diamond inside 960x560", () => 
   assert.deepEqual(projectRaidPoint(geometry, { x: 48, y: 0 }), { x: 914, y: 332.4 });
   assert.deepEqual(projectRaidPoint(geometry, { x: 48, y: 32 }), { x: 566.8, y: 506 });
   assert.deepEqual(projectRaidPoint(geometry, { x: 0, y: 32 }), { x: 46, y: 245.6 });
+});
+
+test("isometric points round-trip through the fixed camera", () => {
+  const geometry = createRaidIsoGeometry(960, 560, GRID);
+  const world = { x: 24.25, y: 13.75 };
+  const restored = unprojectRaidPoint(geometry, projectRaidPoint(geometry, world));
+  assert.ok(Math.abs(restored.x - world.x) < 0.001);
+  assert.ok(Math.abs(restored.y - world.y) < 0.001);
 });
 
 test("projected footprints use all four world-footprint corners", () => {
