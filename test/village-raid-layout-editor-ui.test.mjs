@@ -310,3 +310,85 @@ test("HTML drag accepts only a canonical entity that remains in reserve", async 
   assert.equal(isReserveDragEntity({ id: "cannon-1", x: 3, y: 4 }), false);
   assert.match(script, /if \(!isReserveDragEntity\(entity\)\)[\s\S]*?Depot refuse/);
 });
+
+test("wall keyboard activation supports Enter and Space without moving an old entity", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  const source = script.match(
+    /function isWallKeyboardActivation\([\s\S]*?(?=\nfunction applyWallAtKeyboardCell\()/,
+  )?.[0];
+  assert.ok(source, "wall keyboard activation helper must remain extractable");
+  const isWallKeyboardActivation = Function(
+    `"use strict"; ${source}; return isWallKeyboardActivation;`,
+  )();
+
+  assert.equal(isWallKeyboardActivation({ key: "Enter", code: "Enter" }), true);
+  assert.equal(isWallKeyboardActivation({ key: " ", code: "Space" }), true);
+  assert.equal(isWallKeyboardActivation({ key: "ArrowRight", code: "ArrowRight" }), false);
+  assert.match(script, /selectedTool === "paint" \|\| selectedTool === "erase"/);
+  assert.match(script, /applyLayoutEditorWallStroke\([\s\S]*?\[keyboardCell\]/);
+  assert.match(script, /selectedEntity = null;[\s\S]*?selectedTool = tool\.id/);
+});
+
+test("v2 draft wins while a legacy v1 draft is only detected and warned", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  const source = script.match(
+    /function resolveStoredDraft\([\s\S]*?(?=\nfunction readDraft\()/,
+  )?.[0];
+  assert.ok(source, "stored draft resolver must remain extractable");
+  const resolveStoredDraft = Function(
+    `"use strict"; ${source}; return resolveStoredDraft;`,
+  )();
+  const calls = [];
+  const storage = (entries) => ({
+    getItem(key) {
+      calls.push(key);
+      return entries.has(key) ? entries.get(key) : null;
+    },
+  });
+
+  const v2 = resolveStoredDraft(storage(new Map([
+    ["v2-key", "current"],
+    ["v1-key", "legacy"],
+  ])), "v2-key", "v1-key");
+  assert.deepEqual(v2, { serialized: "current", warning: null });
+  assert.deepEqual(calls, ["v2-key"]);
+
+  calls.length = 0;
+  const legacy = resolveStoredDraft(
+    storage(new Map([["v1-key", "do-not-import"]])),
+    "v2-key",
+    "v1-key",
+  );
+  assert.equal(legacy.serialized, null);
+  assert.match(legacy.warning, /v1.*incompatible.*ignore/i);
+  assert.deepEqual(calls, ["v2-key", "v1-key"]);
+  assert.doesNotMatch(source, /removeItem|setItem|JSON\.parse/);
+});
+
+test("reserve drag ending without an accepted drop reports a red outside-grid error", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  const source = script.match(
+    /function reserveDragEndError\([\s\S]*?(?=\nfunction hasEntityDragType\()/,
+  )?.[0];
+  assert.ok(source, "reserve drag end helper must remain extractable");
+  const reserveDragEndError = Function(
+    `"use strict"; ${source}; return reserveDragEndError;`,
+  )();
+
+  assert.match(reserveDragEndError({ accepted: false, rejectionReported: false }), /hors.*grille/i);
+  assert.equal(reserveDragEndError({ accepted: true, rejectionReported: false }), null);
+  assert.equal(reserveDragEndError({ accepted: false, rejectionReported: true }), null);
+  assert.match(script, /setInteractionMessage\(dragEndError, "error"\)/);
+});
+
+test("history replacement clears every transient top-down preview", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  const replaceSource = script.match(
+    /function replaceCurrentHistory\([\s\S]*?(?=\nfunction commitEditorState\()/,
+  )?.[0];
+  assert.ok(replaceSource);
+  assert.match(replaceSource, /preview = null/);
+  assert.match(replaceSource, /pointerInteraction = null/);
+  assert.match(replaceSource, /wallStroke = null/);
+  assert.match(replaceSource, /reserveDrag = null/);
+});

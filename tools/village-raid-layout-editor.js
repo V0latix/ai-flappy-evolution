@@ -72,16 +72,15 @@ const sourceMessages = new Map();
 
 for (const layout of LAYOUTS) {
   const initial = createEmptyLayoutEditorState(layout);
-  const serialized = readDraft(layout.id);
-  const storageWarning = draftWarnings.get(layout.id);
-  const restored = serialized
-    ? parseLayoutEditorDraft(serialized, initial)
+  const storedDraft = readDraft(layout.id);
+  const restored = storedDraft.serialized !== null
+    ? parseLayoutEditorDraft(storedDraft.serialized, initial)
     : { state: initial, warning: null };
   histories.set(layout.id, {
     ...createLayoutEditorHistory(initial),
     present: restored.state,
   });
-  draftWarnings.set(layout.id, restored.warning ?? storageWarning ?? null);
+  draftWarnings.set(layout.id, restored.warning ?? storedDraft.warning ?? null);
 }
 
 let selectedBaseId = LAYOUTS[0].id;
@@ -91,6 +90,7 @@ let preview = null;
 let keyboardCell = { x: 24, y: 16 };
 let pointerInteraction = null;
 let wallStroke = null;
+let reserveDrag = null;
 let validationFeedback = null;
 let interactionMessage = null;
 let interactionSeverity = null;
@@ -175,6 +175,7 @@ function renderToolbar(state) {
     button.setAttribute("aria-pressed", String(tool.id === selectedTool));
     button.disabled = tool.id === "paint" && reserve.walls === 0;
     button.addEventListener("click", () => {
+      selectedEntity = null;
       selectedTool = tool.id;
       preview = null;
       validationFeedback = null;
@@ -272,12 +273,16 @@ function createEntityGroup(title, variant, entries, selection) {
         event.dataTransfer.setData(ENTITY_DRAG_TYPE, JSON.stringify(selection));
         selectedEntity = selection;
         selectedTool = "move";
+        reserveDrag = { accepted: false, rejectionReported: false };
         preview = null;
         validationFeedback = null;
         setInteractionMessage(null);
       });
       button.addEventListener("dragend", () => {
+        const dragEndError = reserveDragEndError(reserveDrag);
+        reserveDrag = null;
         preview = null;
+        if (dragEndError) setInteractionMessage(dragEndError, "error");
         render();
       });
     }
@@ -640,6 +645,7 @@ function selectBase(baseId) {
   keyboardCell = { x: 24, y: 16 };
   pointerInteraction = null;
   wallStroke = null;
+  reserveDrag = null;
   validationFeedback = null;
   setInteractionMessage(null);
   elements.sourceImage.value = "";
@@ -658,17 +664,38 @@ function persistCurrentDraft() {
   }
 }
 
+function legacyLayoutEditorDraftKey(baseId) {
+  return `neuro-evolution-arcade.village-raid-layout-editor.v1.${baseId}`;
+}
+
+function resolveStoredDraft(storage, currentKey, legacyKey) {
+  const serialized = storage.getItem(currentKey);
+  if (serialized !== null) return { serialized, warning: null };
+  const legacy = storage.getItem(legacyKey);
+  return {
+    serialized: null,
+    warning: legacy === null ? null : "Brouillon v1 incompatible ignore",
+  };
+}
+
 function readDraft(baseId) {
   try {
-    return localStorage.getItem(layoutEditorDraftKey(baseId));
+    return resolveStoredDraft(
+      localStorage,
+      layoutEditorDraftKey(baseId),
+      legacyLayoutEditorDraftKey(baseId),
+    );
   } catch {
-    draftWarnings.set(baseId, "Stockage local indisponible");
-    return null;
+    return { serialized: null, warning: "Stockage local indisponible" };
   }
 }
 
 function replaceCurrentHistory(nextHistory) {
   histories.set(selectedBaseId, nextHistory);
+  preview = null;
+  pointerInteraction = null;
+  wallStroke = null;
+  reserveDrag = null;
   validationFeedback = null;
   setInteractionMessage(null);
   invalidateExport();
@@ -680,6 +707,8 @@ function commitEditorState(nextState) {
   const history = currentHistory();
   const nextHistory = commitLayoutEditorHistory(history, nextState);
   preview = null;
+  pointerInteraction = null;
+  wallStroke = null;
   if (nextHistory === history) {
     render();
     return false;
@@ -748,6 +777,25 @@ function highlightSummary(highlights) {
   return `A verifier - IDs : ${visible}${ids.length > 8 ? ` (+${ids.length - 8})` : ""}.`;
 }
 
+function isWallKeyboardActivation(event) {
+  return event.key === "Enter" || event.key === " " || event.code === "Space";
+}
+
+function applyWallAtKeyboardCell() {
+  const result = applyLayoutEditorWallStroke(
+    currentHistory().present,
+    selectedTool,
+    [keyboardCell],
+  );
+  if (result.error) {
+    setInteractionMessage(result.error, "error");
+    render();
+    return false;
+  }
+  setInteractionMessage(null);
+  return commitEditorState(result.state);
+}
+
 elements.topDownCanvas.addEventListener("keydown", (event) => {
   const directions = {
     ArrowUp: { x: 0, y: -1 },
@@ -763,6 +811,12 @@ elements.topDownCanvas.addEventListener("keydown", (event) => {
     render();
     return;
   }
+  const wallToolSelected = selectedTool === "paint" || selectedTool === "erase";
+  if (wallToolSelected && isWallKeyboardActivation(event)) {
+    event.preventDefault();
+    applyWallAtKeyboardCell();
+    return;
+  }
   if (event.key === "Delete" || event.key === "Backspace") {
     event.preventDefault();
     removeSelectedEntity();
@@ -776,6 +830,15 @@ elements.topDownCanvas.addEventListener("keydown", (event) => {
   const delta = directions[event.key];
   if (!delta) return;
   event.preventDefault();
+  if (wallToolSelected) {
+    keyboardCell = clampKeyboardCell({
+      x: keyboardCell.x + delta.x,
+      y: keyboardCell.y + delta.y,
+    });
+    setInteractionMessage(null);
+    render();
+    return;
+  }
   const state = currentHistory().present;
   const entity = selectedEntity ? findSelectedEntity(state, selectedEntity) : null;
   if (entity && selectedEntity.kind !== "wall" && isLayoutEditorEntityPlaced(entity)) {
@@ -824,6 +887,7 @@ elements.topDownCanvas.addEventListener("drop", (event) => {
   event.preventDefault();
   const selection = parseEntityDragPayload(event.dataTransfer);
   if (!selection) {
+    if (reserveDrag) reserveDrag.rejectionReported = true;
     setInteractionMessage("Depot refuse : element glisse invalide.", "error");
     preview = null;
     render();
@@ -831,6 +895,7 @@ elements.topDownCanvas.addEventListener("drop", (event) => {
   }
   const entity = findSelectedEntity(currentHistory().present, selection);
   if (!isReserveDragEntity(entity)) {
+    if (reserveDrag) reserveDrag.rejectionReported = true;
     setInteractionMessage(
       "Depot refuse : cet element n'est plus disponible dans la reserve.",
       "error",
@@ -841,6 +906,7 @@ elements.topDownCanvas.addEventListener("drop", (event) => {
   }
   const cell = topDownCellAtCanvasPoint(event);
   if (!cell) {
+    if (reserveDrag) reserveDrag.rejectionReported = true;
     setInteractionMessage("Depot refuse : position hors de la grille.", "error");
     preview = null;
     render();
@@ -848,6 +914,7 @@ elements.topDownCanvas.addEventListener("drop", (event) => {
   }
   const result = placeLayoutEditorEntity(currentHistory().present, selection, cell);
   if (result.error) {
+    if (reserveDrag) reserveDrag.rejectionReported = true;
     setInteractionMessage(`Depot refuse : ${result.error}.`, "error");
     preview = { entity: candidateEntity(selection, cell), valid: false };
     render();
@@ -856,6 +923,7 @@ elements.topDownCanvas.addEventListener("drop", (event) => {
   selectedEntity = selection;
   selectedTool = "move";
   keyboardCell = cell;
+  if (reserveDrag) reserveDrag.accepted = true;
   commitEditorState(result.state);
 });
 
@@ -942,6 +1010,11 @@ elements.topDownCanvas.addEventListener("pointercancel", () => {
   setInteractionMessage("Geste annule. Position precedente conservee.");
   render();
 });
+
+function reserveDragEndError(drag) {
+  if (!drag || drag.accepted || drag.rejectionReported) return null;
+  return "Depot refuse : element relache hors de la grille.";
+}
 
 function hasEntityDragType(dataTransfer) {
   return Boolean(dataTransfer) && Array.from(dataTransfer.types ?? []).includes(ENTITY_DRAG_TYPE);
