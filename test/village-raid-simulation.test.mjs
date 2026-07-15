@@ -110,16 +110,47 @@ test("chooses the highest-scoring available troop with stable fallback", () => {
   assert.equal(chooseAvailableTroop(scores, {}), null);
 });
 
-test("deployment stays on the perimeter and permits at most one troop per 10 ticks", () => {
+test("deployment topology includes only free cells beyond every building buffer", () => {
   const world = createRaidWorld("farm-111", BARBARIANS);
-  const troop = deployTroop(world, "barbarian", 0.37);
-  assert.ok(troop);
-  assert.ok(troop.x === 0 || troop.x === 47 || troop.y === 0 || troop.y === 31);
+  assert.ok(world.deploymentCells.length > 0);
+  for (const cell of world.deploymentCells) {
+    assert.equal(world.walls.some((wall) => wall.x === cell.x && wall.y === cell.y), false);
+    assert.equal(world.traps.some((trap) => trap.x === cell.x && trap.y === cell.y), false);
+    assert.equal(world.buildings.some((building) =>
+      cell.x >= building.x - 1 && cell.x <= building.x + building.width &&
+      cell.y >= building.y - 1 && cell.y <= building.y + building.height
+    ), false);
+  }
+});
+
+test("deployment selects interior valid cells and keeps the decision cadence", () => {
+  const world = createRaidWorld("farm-111", BARBARIANS);
+  const index = world.deploymentCells.findIndex(({ x, y }) => x > 0 && x < 47 && y > 0 && y < 31);
+  const expected = world.deploymentCells[index];
+  const troop = deployTroop(world, "barbarian", index / world.deploymentCells.length);
+  assert.ok(index >= 0);
+  assert.deepEqual({ x: Math.round(troop.x), y: Math.round(troop.y) }, expected);
   assert.equal(world.inventory.barbarian, 69);
   assert.equal(deployTroop(world, "barbarian", 0.5), null);
   run(world, 10);
   assert.ok(deployTroop(world, "barbarian", 0.5));
   assert.throws(() => deployTroop(world, "barbarian", 1.1), /between 0 and 1/i);
+});
+
+test("destroyed buildings retain their deployment exclusion zone", () => {
+  const world = createRaidWorld("farm-111", BARBARIANS);
+  const building = world.buildings.find(({ x, y }) => x > 0 && y > 0);
+  const excluded = { x: building.x - 1, y: building.y - 1 };
+  assert.equal(world.deploymentCells.some((cell) => cell.x === excluded.x && cell.y === excluded.y), false);
+  building.hp = 0;
+  assert.equal(world.deploymentCells.some((cell) => cell.x === excluded.x && cell.y === excluded.y), false);
+});
+
+test("an empty deployment topology does not spend a troop", () => {
+  const world = createRaidWorld("farm-111", BARBARIANS);
+  world.deploymentCells = [];
+  assert.equal(deployTroop(world, "barbarian", 0), null);
+  assert.equal(world.inventory.barbarian, 70);
 });
 
 test("overlapping allied troops separate gently without leaving the grid", () => {

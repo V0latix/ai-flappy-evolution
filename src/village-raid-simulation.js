@@ -5,7 +5,6 @@ import {
   TRAP_DEFINITIONS,
   TROOPS,
   WALL_DEFINITION,
-  mapPerimeterPosition,
 } from "./village-raid-data.js";
 
 export const RAID_TICKS_PER_SECOND = 20;
@@ -67,6 +66,7 @@ export function createRaidWorld(baseIndex = 0, composition = {}, layouts = LAYOU
     buildings,
     walls,
     traps,
+    deploymentCells: createDeploymentCells(GRID, buildings, walls, traps),
     troops: [],
     projectiles: [],
     nextTroopId: 1,
@@ -127,21 +127,59 @@ export function chooseAvailableTroop(scores, inventory) {
     .sort((left, right) => right.score - left.score || left.index - right.index)[0]?.id ?? null;
 }
 
+function createDeploymentCells(grid, buildings, walls, traps) {
+  const occupied = new Set();
+  for (const building of buildings) {
+    for (let y = building.y; y < building.y + building.height; y += 1) {
+      for (let x = building.x; x < building.x + building.width; x += 1) occupied.add(`${x},${y}`);
+    }
+  }
+  for (const entity of [...walls, ...traps]) occupied.add(`${entity.x},${entity.y}`);
+  const cells = [];
+  for (let y = 0; y < grid.height; y += 1) {
+    for (let x = 0; x < grid.width; x += 1) {
+      const cell = { x, y };
+      if (occupied.has(keyOf(cell))) continue;
+      if (buildings.some((building) => isInDeploymentBuffer(cell, building))) continue;
+      cells.push(cell);
+    }
+  }
+  return cells;
+}
+
+function isInDeploymentBuffer(cell, building) {
+  return cell.x >= building.x - 1 && cell.x <= building.x + building.width &&
+    cell.y >= building.y - 1 && cell.y <= building.y + building.height;
+}
+
+function deploymentCellFor(world, normalizedPosition) {
+  if (!Number.isFinite(normalizedPosition) || normalizedPosition < 0 || normalizedPosition > 1) {
+    throw new RangeError("Deployment position must be between 0 and 1");
+  }
+  if (!world.deploymentCells.length) return null;
+  const index = Math.min(world.deploymentCells.length - 1, Math.floor(normalizedPosition * world.deploymentCells.length));
+  return world.deploymentCells[index];
+}
+
 export function deployTroop(world, type, normalizedPosition) {
+  const cell = deploymentCellFor(world, normalizedPosition);
   if (!TROOPS[type]) throw new RangeError(`Unknown troop type: ${type}`);
-  const position = mapPerimeterPosition(normalizedPosition);
   if (isRaidComplete(world) || (world.inventory[type] ?? 0) <= 0) return null;
   if (world.tick - world.lastDecisionTick < world.decisionInterval) return null;
+  if (!cell) return null;
 
   const offsetIndex = world.nextTroopId - 1;
-  const tangentOffset = ((offsetIndex % 5) - 2) * 0.06;
-  const adjusted = perimeterOffset(position, tangentOffset);
+  const offset = ((offsetIndex % 5) - 2) * 0.06;
+  const position = {
+    x: clamp(cell.x + offset, 0, world.grid.width - 1),
+    y: cell.y,
+  };
   const definition = TROOPS[type];
   const troop = {
     id: `troop-${world.nextTroopId++}`,
     type,
-    x: adjusted.x,
-    y: adjusted.y,
+    x: position.x,
+    y: position.y,
     hp: definition.hp,
     maxHp: definition.hp,
     alive: true,
@@ -572,13 +610,6 @@ function entityCenter(entity) {
 function sectorFor(point) {
   const angle = Math.atan2(point.y - (GRID.height - 1) / 2, point.x - (GRID.width - 1) / 2);
   return Math.floor((((angle + Math.PI) / (Math.PI * 2)) * 8) % 8);
-}
-
-function perimeterOffset(point, amount) {
-  if (point.side === "top" || point.side === "bottom") {
-    return { ...point, x: Math.max(0, Math.min(GRID.width - 1, point.x + amount)) };
-  }
-  return { ...point, y: Math.max(0, Math.min(GRID.height - 1, point.y + amount)) };
 }
 
 function neighbors(cell, grid) {
