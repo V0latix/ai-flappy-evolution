@@ -230,24 +230,43 @@ function localStorageMock() {
   };
 }
 
-async function loadHarness() {
+async function loadHarness({ inaccessibleStorage = false } = {}) {
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const elements = parseElements(html);
   const document = new MockDocument(elements);
   const window = new MockWindow();
   const frames = [];
   const storage = localStorageMock();
+  const previousStorage = inaccessibleStorage
+    ? Object.getOwnPropertyDescriptor(globalThis, "localStorage")
+    : null;
 
   globalThis.document = document;
   globalThis.window = window;
-  globalThis.localStorage = storage;
+  if (inaccessibleStorage) {
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      get() {
+        throw new Error("SecurityError");
+      },
+    });
+  } else {
+    globalThis.localStorage = storage;
+  }
   globalThis.requestAnimationFrame = (callback) => {
     frames.push(callback);
     return frames.length;
   };
 
   const moduleUrl = new URL(`../src/main.js?test=${Date.now()}-${Math.random()}`, import.meta.url);
-  await import(moduleUrl.href);
+  try {
+    await import(moduleUrl.href);
+  } finally {
+    if (inaccessibleStorage) {
+      if (previousStorage) Object.defineProperty(globalThis, "localStorage", previousStorage);
+      else delete globalThis.localStorage;
+    }
+  }
 
   return {
     elements,
@@ -430,7 +449,11 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /from "\.\/village-raid-data\.js"/);
   assert.match(script, /from "\.\/village-raid-simulation\.js"/);
   assert.match(script, /from "\.\/village-raid-rendering\.js"/);
-  assert.match(script, /const raidLayouts = resolveRaidLayouts\(localStorage, RAID_LAYOUTS\);/);
+  assert.match(script, /const raidLayouts = resolveStartupRaidLayouts\(\);/);
+  assert.match(
+    script,
+    /function resolveStartupRaidLayouts\(\) \{[\s\S]*?resolveRaidLayouts\(localStorage, RAID_LAYOUTS\)[\s\S]*?return RAID_LAYOUTS;/,
+  );
   assert.match(script, /drawRaidBuilding\(targetCtx, building, offsetX, tile\)/);
   assert.match(script, /drawRaidTroop\(targetCtx, troop, offsetX, tile\)/);
   assert.match(script, /drawRaidTroopKey\(targetCtx,/);
@@ -665,6 +688,17 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /pad dx/);
   assert.match(script, /vision -90/);
   assert.match(script, /vision 90/);
+});
+
+test("module boots with canonical Raid layouts when localStorage is inaccessible", async () => {
+  const harness = await loadHarness({ inaccessibleStorage: true });
+
+  harness.runFrame();
+  element(harness, "gameRaid").click();
+  harness.runFrame();
+
+  assert.equal(element(harness, "activeGameTitle").textContent, "Village Raid HDV 3");
+  assert.equal(element(harness, "raidBase").textContent, "1/3");
 });
 
 test("game picker switches to AI-only Village Raid with its profile and HUD", async () => {

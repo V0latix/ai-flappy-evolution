@@ -37,7 +37,15 @@ import {
 } from "./village-raid-training.js";
 import { resolveRaidLayouts } from "./village-raid-layout-overrides.js";
 
-const raidLayouts = resolveRaidLayouts(localStorage, RAID_LAYOUTS);
+const raidLayouts = resolveStartupRaidLayouts();
+
+function resolveStartupRaidLayouts() {
+  try {
+    return resolveRaidLayouts(localStorage, RAID_LAYOUTS);
+  } catch {
+    return RAID_LAYOUTS;
+  }
+}
 
 const gameCanvas = document.querySelector("#game");
 const ctx = gameCanvas.getContext("2d");
