@@ -1251,7 +1251,9 @@ function loadSourceImage(baseId, source, isObjectUrl = false, isBundled = false)
   if (!isObjectUrl) {
     try {
       const url = new URL(source, location.href);
-      if (url.origin !== location.origin) {
+      const pageUrl = new URL(location.href);
+      const isFileSourceForFilePage = url.protocol === "file:" && pageUrl.protocol === "file:";
+      if (!isFileSourceForFilePage && url.origin !== location.origin) {
         sourceMessages.set(baseId, "Source refusee : l'URL doit utiliser la meme origine.");
         if (baseId === selectedBaseId) render();
         return;

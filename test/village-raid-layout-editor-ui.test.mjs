@@ -235,6 +235,62 @@ test("a failed launch override leaves its pending bundled reference eligible to 
   assert.equal(bundledSourceAttempts.has("farm-111"), false);
 });
 
+test("a file editor accepts its relative bundled reference when location.origin is file", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  const loadSourceImageSource = script.match(
+    /function loadSourceImage\([\s\S]*?(?=\nfunction revokeSourceImage\()/,
+  )?.[0];
+  assert.ok(loadSourceImageSource, "loadSourceImage must remain extractable for regression coverage");
+
+  const sourceImages = new Map();
+  const sourceAttempts = new Map();
+  const bundledSourceAttempts = new Map();
+  const sourceMessages = new Map();
+  const images = [];
+  const loadSourceImage = Function(
+    "sourceImages",
+    "sourceAttempts",
+    "bundledSourceAttempts",
+    "sourceMessages",
+    "location",
+    "Image",
+    "revokeSourceImage",
+    "render",
+    "selectedBaseId",
+    `"use strict"; ${loadSourceImageSource}; return loadSourceImage;`,
+  )(
+    sourceImages,
+    sourceAttempts,
+    bundledSourceAttempts,
+    sourceMessages,
+    {
+      href: "file:///Users/romain/dev/neuro-evolution-arcade/tools/village-raid-layout-editor.html",
+      origin: "file://",
+    },
+    class ControlledImage {
+      constructor() {
+        this.listeners = new Map();
+        images.push(this);
+      }
+
+      addEventListener(type, listener) {
+        this.listeners.set(type, listener);
+      }
+    },
+    () => {},
+    () => {},
+    "farm-111",
+  );
+
+  loadSourceImage("farm-111", "../assets/village-raid-references/farm-111.jpg", false, true);
+  assert.equal(images.length, 1);
+  assert.equal(bundledSourceAttempts.get("farm-111")?.image, images[0]);
+  assert.equal(
+    images[0].src,
+    "file:///Users/romain/dev/neuro-evolution-arcade/assets/village-raid-references/farm-111.jpg",
+  );
+});
+
 test("manual layout editor styling exposes responsive focus and disabled states", async () => {
   const css = await readFile(cssUrl, "utf8");
   assert.match(css, /:focus-visible/);
