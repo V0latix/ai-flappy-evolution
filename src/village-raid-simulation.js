@@ -29,11 +29,11 @@ const ATTACK_INTERVALS = Object.freeze({
 });
 const RANGES = Object.freeze({ barbarian: 1.2, archer: TROOPS.archer.range, giant: 1.2, goblin: 1.2, wallBreaker: 1.2 });
 
-export function createRaidWorld(layoutId = 0, composition = {}) {
-  const layout = typeof layoutId === "number"
-    ? LAYOUTS[layoutId]
-    : LAYOUTS.find(({ id }) => id === layoutId);
-  if (!layout) throw new RangeError(`Unknown raid layout: ${layoutId}`);
+export function createRaidWorld(baseIndex = 0, composition = {}, layouts = LAYOUTS) {
+  const layout = typeof baseIndex === "number"
+    ? layouts[baseIndex]
+    : layouts.find(({ id }) => id === baseIndex);
+  if (!layout) throw new RangeError(`Unknown raid layout: ${baseIndex}`);
 
   const inventory = normalizeComposition(composition);
   const buildings = layout.buildings.map((building) => ({

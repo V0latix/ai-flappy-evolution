@@ -278,6 +278,7 @@ function runUntil(harness, predicate, maxFrames) {
 test("static app includes every primary control and asset reference", async () => {
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const script = await readFile(new URL("../src/main.js", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
   const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
   const favicon = await readFile(new URL("../assets/favicon.svg", import.meta.url), "utf8");
 
@@ -350,6 +351,11 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(html, /Hill Climb/);
   assert.match(html, /Formula Circuit/);
   assert.match(html, /Village Raid HDV 3/);
+  assert.match(
+    html,
+    /<section id="explanationRaid"[\s\S]*?<a[^>]+href="\.\/tools\/village-raid-layout-editor\.html"[^>]+target="_blank"[^>]+rel="noopener"[^>]*>[^<]*Ouvrir l'editeur de villages/i,
+  );
+  assert.match(styles, /\.raid-editor-link\s*\{[\s\S]*?display:\s*inline-block/);
   assert.match(html, /37[^\n]*18[^\n]*7/);
   assert.match(html, /trois bases/);
   assert.match(html, /Les trois chicanes sont volontairement plus etroites/);
@@ -424,6 +430,7 @@ test("static app includes every primary control and asset reference", async () =
   assert.match(script, /from "\.\/village-raid-data\.js"/);
   assert.match(script, /from "\.\/village-raid-simulation\.js"/);
   assert.match(script, /from "\.\/village-raid-rendering\.js"/);
+  assert.match(script, /const raidLayouts = resolveRaidLayouts\(localStorage, RAID_LAYOUTS\);/);
   assert.match(script, /drawRaidBuilding\(targetCtx, building, offsetX, tile\)/);
   assert.match(script, /drawRaidTroop\(targetCtx, troop, offsetX, tile\)/);
   assert.match(script, /drawRaidTroopKey\(targetCtx,/);

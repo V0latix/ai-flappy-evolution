@@ -64,6 +64,26 @@ button:hover {
   border-color: var(--color-primary);
 }
 
+.raid-editor-link {
+  display: inline-block;
+  min-height: 42px;
+  padding: 10px 14px;
+  border: 2px solid var(--color-primary);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.raid-editor-link:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.raid-editor-link:focus-visible {
+  outline: 3px solid var(--fg);
+  outline-offset: 3px;
+}
+
 .button-ghost {
   background: transparent;
   color: var(--fg);

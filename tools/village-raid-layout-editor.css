@@ -109,6 +109,8 @@ h1 { margin-bottom: 16px; }
   background: #115e59;
 }
 
+.apply-controls { gap: 8px; }
+
 .source-controls {
   display: flex;
   flex-wrap: wrap;
@@ -243,6 +245,7 @@ canvas {
 @media (max-width: 1100px) {
   .editor-heading { align-items: start; flex-direction: column; gap: 0; }
   .history-controls { margin-left: 0; }
+  .apply-controls { width: 100%; }
   .editor-feedback { grid-template-columns: 1fr; }
   .editor-workspace { grid-template-columns: 1fr; }
   #entityList { max-height: 260px; overflow: auto; }

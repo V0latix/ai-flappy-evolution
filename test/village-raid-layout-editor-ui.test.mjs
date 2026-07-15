@@ -45,6 +45,18 @@ test("manual layout editor exposes every required control and local module", asy
   assert.doesNotMatch(html, /(?:src|href)=["']https?:\/\//i);
 });
 
+test("manual layout editor exposes local apply and restore controls", async () => {
+  const html = await readFile(htmlUrl, "utf8");
+  const script = await readFile(scriptUrl, "utf8");
+  for (const id of ["applyEditor", "restoreAppliedLayouts"]) {
+    assert.match(html, new RegExp(`id=["']${id}["']`), id);
+  }
+  assert.match(html, /Appliquer ce village au jeu/);
+  assert.match(html, /Restaurer les villages d'origine/);
+  assert.match(script, /saveRaidLayoutOverride\(localStorage, state, LAYOUTS\)/);
+  assert.match(script, /clearRaidLayoutOverrides\(localStorage\)/);
+});
+
 test("manual layout editor references the existing local favicon", async () => {
   const html = await readFile(htmlUrl, "utf8");
   assert.match(

@@ -29,6 +29,10 @@ import {
   drawRaidBuildingArtwork,
   RAID_BUILDING_NAMES,
 } from "../src/village-raid-rendering.js";
+import {
+  clearRaidLayoutOverrides,
+  saveRaidLayoutOverride,
+} from "../src/village-raid-layout-overrides.js";
 
 const SOURCE_KEYS = Object.freeze({
   "farm-111": "source111",
@@ -65,6 +69,8 @@ const elements = {
   redoEditor: document.querySelector("#redoEditor"),
   resetEditor: document.querySelector("#resetEditor"),
   validateEditor: document.querySelector("#validateEditor"),
+  applyEditor: document.querySelector("#applyEditor"),
+  restoreAppliedLayouts: document.querySelector("#restoreAppliedLayouts"),
   exportPanel: document.querySelector("#exportPanel"),
   exportJson: document.querySelector("#exportJson"),
 };
@@ -109,6 +115,7 @@ function currentHistory() {
 function render() {
   const focusTarget = captureEditorFocus();
   const state = currentHistory().present;
+  elements.applyEditor.disabled = !validateLayoutEditorState(currentHistory().present).valid;
   const geometry = createRaidTopDownGeometry(
     elements.topDownCanvas.width,
     elements.topDownCanvas.height,
@@ -774,6 +781,26 @@ elements.validateEditor.addEventListener("click", () => {
       ? `Village valide avec avertissement : ${result.warnings.join(" ; ")}.`
       : "Village top-down valide. Les coordonnees affichees sont pretes a etre relues.",
   };
+  render();
+});
+
+elements.applyEditor.addEventListener("click", () => {
+  const state = currentHistory().present;
+  const result = saveRaidLayoutOverride(localStorage, state, LAYOUTS);
+  setInteractionMessage(
+    result.ok ? "Village applique. Rechargez l'application principale pour l'utiliser." : result.error,
+    result.ok ? "success" : "error",
+  );
+  render();
+});
+
+elements.restoreAppliedLayouts.addEventListener("click", () => {
+  if (!window.confirm("Restaurer les trois villages d'origine pour le jeu ? Les brouillons et champions sont conserves.")) return;
+  const result = clearRaidLayoutOverrides(localStorage);
+  setInteractionMessage(
+    result.ok ? "Les villages appliques ont ete restaures." : result.error,
+    result.ok ? "success" : "error",
+  );
   render();
 });
 

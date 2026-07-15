@@ -272,14 +272,17 @@ environment.
 
 ### Manual Village Raid layout editor
 
-Serve the repository and open `/tools/village-raid-layout-editor.html`. Keep the
-bundled reference screenshot for #111, #26, or #104 appears automatically on
-the left when its village is selected. Drag the 22 buildings and 2 bombs from
-reserve onto the empty top-down grid, then paint all 50 walls with the wall
-brush. The file picker is a temporary replacement for the selected village's
-reference only; it never changes an export. Each village keeps an independent
-local v2 draft. Validate #111, #26, and #104 separately and use only the
-visible approved JSON exports for a later production-layout change.
+Open the editor from the Village Raid explanation panel, or serve the repository
+and open `/tools/village-raid-layout-editor.html`. The bundled reference
+screenshot for #111, #26, or #104 appears automatically on the left when its
+village is selected. Drag the 22 buildings and 2 bombs from reserve onto the
+empty top-down grid, then paint all 50 walls with the wall brush. The file
+picker is a temporary replacement for the selected village's reference only;
+it never changes an export. Each village keeps an independent local v2 draft.
+`Appliquer ce village au jeu` becomes available only when the visible village is
+valid. It stores that village in browser-local storage and takes effect after
+the main app reloads. `Restaurer les villages d'origine` confirms before
+removing only the applied layouts; local drafts and champions are preserved.
 
 ## Notes
 

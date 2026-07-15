@@ -35,6 +35,9 @@ import {
   createRaidBasePlan,
   meanRaidDestruction,
 } from "./village-raid-training.js";
+import { resolveRaidLayouts } from "./village-raid-layout-overrides.js";
+
+const raidLayouts = resolveRaidLayouts(localStorage, RAID_LAYOUTS);
 
 const gameCanvas = document.querySelector("#game");
 const ctx = gameCanvas.getContext("2d");
@@ -3386,14 +3389,14 @@ function createVillageRaidGame() {
     resetRaidInspection();
     const plan = createRaidBasePlan(baseIndex, agent.composition);
     targetWorld.raidBaseIndex = plan.baseIndex;
-    targetWorld.raidWorld = createRaidWorld(plan.baseIndex, plan.composition);
+    targetWorld.raidWorld = createRaidWorld(plan.baseIndex, plan.composition, raidLayouts);
     targetWorld.raidTerminalPending = false;
     targetWorld.raidStartFramePending = !targetWorld.raidFrameYieldPending;
   }
 
   function finishBase(agent, targetWorld) {
     agent.raidResults.push(destructionPercent(targetWorld.raidWorld));
-    if (targetWorld.raidBaseIndex < RAID_LAYOUTS.length - 1) {
+    if (targetWorld.raidBaseIndex < raidLayouts.length - 1) {
       beginBase(agent, targetWorld, targetWorld.raidBaseIndex + 1);
       return;
     }

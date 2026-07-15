@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { LAYOUTS } from "../src/village-raid-data.js";
+
 import {
   RAID_MAX_TICKS,
   RAID_TICKS_PER_SECOND,
@@ -60,6 +62,25 @@ test("creates an isolated world and a normalized 37-value observation", () => {
   for (const value of observation) assert.ok(value >= 0 && value <= 1, value);
   assert.deepEqual(observation.slice(0, 3), [1, 1, 0]);
   assert.throws(() => createRaidWorld("missing", MIXED), /layout/i);
+});
+
+test("world uses a supplied derived layout without mutating the canonical data", () => {
+  const canonical = LAYOUTS[0];
+  const movedX = canonical.buildings[0].x + 1;
+  const derivedLayouts = [
+    {
+      ...canonical,
+      buildings: canonical.buildings.map((building, index) => (
+        index === 0 ? { ...building, x: movedX } : building
+      )),
+    },
+    ...LAYOUTS.slice(1),
+  ];
+
+  const world = createRaidWorld(0, MIXED, derivedLayouts);
+
+  assert.equal(world.buildings[0].x, movedX);
+  assert.equal(LAYOUTS[0].buildings[0].x, canonical.buildings[0].x);
 });
 
 test("A* chooses the deterministic minimum-cost route around an expensive wall", () => {
