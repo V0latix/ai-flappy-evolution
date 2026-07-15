@@ -5,6 +5,30 @@ import { readFile } from "node:fs/promises";
 const htmlUrl = new URL("../tools/village-raid-layout-editor.html", import.meta.url);
 const cssUrl = new URL("../tools/village-raid-layout-editor.css", import.meta.url);
 const scriptUrl = new URL("../tools/village-raid-layout-editor.js", import.meta.url);
+const bundledReferenceUrls = Object.freeze([
+  new URL("../assets/village-raid-references/farm-111.jpg", import.meta.url),
+  new URL("../assets/village-raid-references/war-26.jpg", import.meta.url),
+  new URL("../assets/village-raid-references/defence-104.jpg", import.meta.url),
+]);
+
+test("manual editor bundles one durable reference image for each base", async () => {
+  for (const url of bundledReferenceUrls) {
+    assert.ok((await readFile(url)).length > 0, url.pathname);
+  }
+  const script = await readFile(scriptUrl, "utf8");
+  assert.match(script, /const BUNDLED_REFERENCE_SOURCES = Object\.freeze\(/);
+  assert.match(script, /"farm-111": "\.\.\/assets\/village-raid-references\/farm-111\.jpg"/);
+  assert.match(script, /"war-26": "\.\.\/assets\/village-raid-references\/war-26\.jpg"/);
+  assert.match(script, /"defence-104": "\.\.\/assets\/village-raid-references\/defence-104\.jpg"/);
+});
+
+test("manual editor loads bundled references before temporary launch overrides", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+  assert.match(
+    script,
+    /for \(const \[baseId, source\] of Object\.entries\(BUNDLED_REFERENCE_SOURCES\)\) \{[\s\S]*?loadSourceImage\(baseId, source\);[\s\S]*?for \(const \[baseId, key\] of Object\.entries\(SOURCE_KEYS\)\)/,
+  );
+});
 
 test("manual layout editor exposes every required control and local module", async () => {
   const html = await readFile(htmlUrl, "utf8");
@@ -84,18 +108,22 @@ test("manual layout editor script wires startup, history and safe temporary imag
   assert.match(script, /draftWarnings/);
 });
 
-test("malformed launch source URLs recover in French and allow final rendering", async () => {
+test("source loading preserves the last successful image when a replacement fails", async () => {
   const script = await readFile(scriptUrl, "utf8");
   const loadSourceImageSource = script.match(
     /function loadSourceImage\([\s\S]*?(?=\nfunction revokeSourceImage\()/,
   )?.[0];
   assert.ok(loadSourceImageSource, "loadSourceImage must remain extractable for regression coverage");
 
-  const sourceImages = new Map([["farm-111", { isObjectUrl: false }]]);
+  const bundledRecord = { isObjectUrl: false, url: "file:///farm-111.jpg" };
+  const sourceImages = new Map([["farm-111", bundledRecord]]);
+  const sourceAttempts = new Map();
   const sourceMessages = new Map();
   let renderCount = 0;
+  let nextImage = null;
   const loadSourceImage = Function(
     "sourceImages",
+    "sourceAttempts",
     "sourceMessages",
     "location",
     "Image",
@@ -105,11 +133,21 @@ test("malformed launch source URLs recover in French and allow final rendering",
     `"use strict"; ${loadSourceImageSource}; return loadSourceImage;`,
   )(
     sourceImages,
+    sourceAttempts,
     sourceMessages,
     { href: "http://127.0.0.1/editor", origin: "http://127.0.0.1" },
-    class UnexpectedImage {
+    class ControlledImage {
       constructor() {
-        throw new Error("an invalid URL must not create an image");
+        this.listeners = new Map();
+        nextImage = this;
+      }
+
+      addEventListener(type, listener) {
+        this.listeners.set(type, listener);
+      }
+
+      emit(type) {
+        this.listeners.get(type)?.();
       }
     },
     (baseId) => sourceImages.delete(baseId),
@@ -118,12 +156,20 @@ test("malformed launch source URLs recover in French and allow final rendering",
   );
 
   assert.doesNotThrow(() => loadSourceImage("farm-111", "http://["));
-  assert.equal(sourceImages.has("farm-111"), false);
+  assert.equal(sourceImages.get("farm-111"), bundledRecord);
   assert.match(sourceMessages.get("farm-111"), /source refusee.*URL invalide/i);
   assert.equal(renderCount, 1);
+
+  loadSourceImage("farm-111", "./temporary-replacement.jpg");
+  assert.equal(sourceImages.get("farm-111"), bundledRecord);
+  assert.ok(sourceAttempts.has("farm-111"));
+  nextImage.emit("error");
+  assert.equal(sourceImages.get("farm-111"), bundledRecord);
+  assert.equal(sourceAttempts.has("farm-111"), false);
+  assert.match(sourceMessages.get("farm-111"), /reference est conservee/i);
   assert.match(
     script,
-    /for \(const \[baseId, key\] of Object\.entries\(SOURCE_KEYS\)\)[\s\S]*?loadSourceImage\(baseId, source\);[\s\S]*?\n}\nrender\(\);/,
+    /for \(const \[baseId, source\] of Object\.entries\(BUNDLED_REFERENCE_SOURCES\)\) \{[\s\S]*?loadSourceImage\(baseId, source\);[\s\S]*?for \(const \[baseId, key\] of Object\.entries\(SOURCE_KEYS\)\)/,
   );
 });
 

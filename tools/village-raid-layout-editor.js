@@ -35,6 +35,11 @@ const SOURCE_KEYS = Object.freeze({
   "war-26": "source26",
   "defence-104": "source104",
 });
+const BUNDLED_REFERENCE_SOURCES = Object.freeze({
+  "farm-111": "../assets/village-raid-references/farm-111.jpg",
+  "war-26": "../assets/village-raid-references/war-26.jpg",
+  "defence-104": "../assets/village-raid-references/defence-104.jpg",
+});
 const BASE_LABELS = Object.freeze({
   "farm-111": "Ferme 111",
   "war-26": "Guerre 26",
@@ -68,6 +73,7 @@ const params = new URLSearchParams(location.search);
 const histories = new Map();
 const draftWarnings = new Map();
 const sourceImages = new Map();
+const sourceAttempts = new Map();
 const sourceMessages = new Map();
 
 for (const layout of LAYOUTS) {
@@ -1251,31 +1257,46 @@ function loadSourceImage(baseId, source, isObjectUrl = false) {
       }
       source = url.href;
     } catch {
-      revokeSourceImage(baseId);
       sourceMessages.set(baseId, "Source refusee : URL invalide.");
       if (baseId === selectedBaseId) render();
       return;
     }
   }
 
-  revokeSourceImage(baseId);
+  const previousAttempt = sourceAttempts.get(baseId);
+  if (previousAttempt?.isObjectUrl) URL.revokeObjectURL(previousAttempt.url);
+  sourceAttempts.delete(baseId);
+
   const image = new Image();
   const record = { image, url: source, isObjectUrl };
-  sourceImages.set(baseId, record);
+  sourceAttempts.set(baseId, record);
   sourceMessages.set(
     baseId,
     isObjectUrl
-      ? "Image locale temporaire chargee pour ce village."
-      : "Photo de reference chargee pour ce village.",
+      ? "Chargement de l'image locale temporaire..."
+      : "Chargement de la photo de reference...",
   );
   image.addEventListener("load", () => {
-    if (sourceImages.get(baseId) !== record) return;
+    if (sourceAttempts.get(baseId) !== record) return;
+    sourceAttempts.delete(baseId);
+    revokeSourceImage(baseId);
+    sourceImages.set(baseId, record);
+    sourceMessages.set(
+      baseId,
+      isObjectUrl
+        ? "Image locale temporaire chargee pour ce village."
+        : "Photo de reference chargee pour ce village.",
+    );
     if (baseId === selectedBaseId) render();
   }, { once: true });
   image.addEventListener("error", () => {
-    if (sourceImages.get(baseId) !== record) return;
-    sourceMessages.set(baseId, "Image source illisible - choisissez un autre fichier");
-    revokeSourceImage(baseId);
+    if (sourceAttempts.get(baseId) !== record) return;
+    sourceAttempts.delete(baseId);
+    if (record.isObjectUrl) URL.revokeObjectURL(record.url);
+    sourceMessages.set(
+      baseId,
+      "Image source illisible - la photo de reference est conservee.",
+    );
     if (baseId === selectedBaseId) render();
   }, { once: true });
   image.src = source;
@@ -1289,8 +1310,15 @@ function revokeSourceImage(baseId) {
 
 window.addEventListener("beforeunload", () => {
   for (const baseId of sourceImages.keys()) revokeSourceImage(baseId);
+  for (const attempt of sourceAttempts.values()) {
+    if (attempt.isObjectUrl) URL.revokeObjectURL(attempt.url);
+  }
+  sourceAttempts.clear();
 });
 
+for (const [baseId, source] of Object.entries(BUNDLED_REFERENCE_SOURCES)) {
+  loadSourceImage(baseId, source);
+}
 for (const [baseId, key] of Object.entries(SOURCE_KEYS)) {
   const source = params.get(key);
   if (source) loadSourceImage(baseId, source);
