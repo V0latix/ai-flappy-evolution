@@ -1147,6 +1147,7 @@ test("module boots, draws AI network labels, and reports initial training state"
   assert.equal(element(harness, "modeAi").classList.contains("is-active"), true);
   assert.equal(element(harness, "gamePipe").classList.contains("is-active"), true);
   assert.equal(element(harness, "activeGameTitle").textContent, "Flappy Bird");
+  assert.equal(Number(element(harness, "speed").max), 100);
   assert.equal(element(harness, "lunarSettings").classList.contains("is-hidden"), true);
   assert.equal(element(harness, "lunarSettings").hidden, true);
   assert.equal(element(harness, "pipeSettings").classList.contains("settings-visible"), true);
@@ -1189,7 +1190,7 @@ test("game picker switches to Lunar Lander with dedicated sliders and network sh
   assert.equal(element(harness, "distanceLabel").textContent, "Pad distance");
   assert.equal(element(harness, "leaderFitnessLabel").textContent, "Specimen fitness");
   assert.equal(element(harness, "speed").value, 7);
-  assert.equal(element(harness, "speed").max, 28);
+  assert.equal(element(harness, "speed").max, 100);
   assert.equal(element(harness, "lunarGravityValue").textContent, "0.17g");
   assert.equal(element(harness, "lunarFuelValue").textContent, "120");
   assert.equal(element(harness, "lunarPadSizeValue").textContent, "150");
@@ -1237,7 +1238,7 @@ test("game picker switches to Hill Climb with sequential run controls and networ
   assert.equal(element(harness, "distanceLabel").textContent, "Distance");
   assert.equal(element(harness, "leaderFitnessLabel").textContent, "Current specimen");
   assert.equal(element(harness, "speed").value, 8);
-  assert.equal(element(harness, "speed").max, 32);
+  assert.equal(element(harness, "speed").max, 100);
 
   const networkCalls = element(harness, "network").getContext().calls;
   const labels = networkCalls.filter((call) => call.type === "fillText").map((call) => call.text);
@@ -1282,7 +1283,7 @@ test("game picker switches to Formula Circuit with full-population cars and netw
   assert.equal(element(harness, "distanceLabel").textContent, "Checkpoints");
   assert.equal(element(harness, "leaderFitnessLabel").textContent, "Lead car");
   assert.equal(element(harness, "speed").value, 4);
-  assert.equal(element(harness, "speed").max, 16);
+  assert.equal(element(harness, "speed").max, 100);
 
   const networkCalls = element(harness, "network").getContext().calls;
   const labels = networkCalls.filter((call) => call.type === "fillText").map((call) => call.text);
