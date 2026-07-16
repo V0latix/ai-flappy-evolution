@@ -3577,10 +3577,9 @@ function drawRaidWorld(targetCtx, targetWorld, agent) {
     targetCtx.lineTo(offsetX + RAID_GRID.width * tile, y * tile);
     targetCtx.stroke();
   }
-  targetCtx.strokeStyle = "#e56f51";
-  targetCtx.lineWidth = 3;
-  targetCtx.strokeRect(offsetX + 2, 2, RAID_GRID.width * tile - 4, RAID_GRID.height * tile - 4);
   if (!raidWorld) return;
+
+  drawRaidDeploymentZone(targetCtx, raidWorld, offsetX, tile);
 
   for (const wall of raidWorld.walls) {
     if (wall.hp <= 0) continue;
@@ -3616,6 +3615,7 @@ function drawRaidWorld(targetCtx, targetWorld, agent) {
     drawRaidBuildingTooltip(targetCtx, inspectedBuilding, offsetX, tile, WIDTH, HEIGHT);
   }
   drawRaidTroopKey(targetCtx, WIDTH - 220, 18);
+  drawRaidDeploymentLegend(targetCtx, 18, 138);
 
   const current = destructionPercent(raidWorld);
   const completed = agent?.raidResults || [];
@@ -3629,6 +3629,40 @@ function drawRaidWorld(targetCtx, targetWorld, agent) {
   targetCtx.fillText(`Temps ${raidSecondsRemaining(raidWorld)} s`, 32, 65);
   targetCtx.fillText(`Destruction ${current.toFixed(2)}%`, 32, 87);
   targetCtx.fillText(`Moyenne ${average.toFixed(2)}%`, 32, 109);
+}
+
+function drawRaidDeploymentZone(targetCtx, raidWorld, offsetX, tile) {
+  targetCtx.fillStyle = "rgba(224, 91, 85, 0.22)";
+  for (const building of raidWorld.buildings) {
+    const startX = Math.max(0, building.x - 1);
+    const endX = Math.min(RAID_GRID.width - 1, building.x + building.width);
+    const startY = Math.max(0, building.y - 1);
+    const endY = Math.min(RAID_GRID.height - 1, building.y + building.height);
+    for (let y = startY; y <= endY; y += 1) {
+      for (let x = startX; x <= endX; x += 1) {
+        targetCtx.fillRect(offsetX + x * tile + 1, y * tile + 1, tile - 2, tile - 2);
+      }
+    }
+  }
+
+  targetCtx.fillStyle = "rgba(42, 153, 118, 0.20)";
+  for (const cell of raidWorld.deploymentCells) {
+    targetCtx.fillRect(offsetX + cell.x * tile + 1, cell.y * tile + 1, tile - 2, tile - 2);
+  }
+}
+
+function drawRaidDeploymentLegend(targetCtx, x, y) {
+  targetCtx.fillStyle = "rgba(255,255,255,0.9)";
+  targetCtx.fillRect(x, y, 190, 54);
+  targetCtx.font = "700 13px system-ui";
+  targetCtx.fillStyle = "rgba(42, 153, 118, 0.75)";
+  targetCtx.fillRect(x + 12, y + 11, 14, 14);
+  targetCtx.fillStyle = "#172026";
+  targetCtx.fillText("Zone deployable", x + 34, y + 23);
+  targetCtx.fillStyle = "rgba(224, 91, 85, 0.75)";
+  targetCtx.fillRect(x + 12, y + 31, 14, 14);
+  targetCtx.fillStyle = "#172026";
+  targetCtx.fillText("Zone interdite", x + 34, y + 43);
 }
 
 function raidCanvasGeometry() {

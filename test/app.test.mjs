@@ -136,9 +136,11 @@ function createMockContext() {
     ellipse() {},
     fill() {},
     stroke() {},
-    fillRect() {},
+    fillRect(x, y, width, height) {
+      calls.push({ type: "fillRect", x, y, width, height, fillStyle: this.fillStyle });
+    },
     strokeRect(x, y, width, height) {
-      calls.push({ type: "strokeRect", x, y, width, height });
+      calls.push({ type: "strokeRect", x, y, width, height, strokeStyle: this.strokeStyle });
     },
     moveTo() {},
     lineTo() {},
@@ -775,6 +777,24 @@ test("game picker switches to AI-only Village Raid with its profile and HUD", as
   for (const label of ["B", "A", "G", "Go", "S"]) {
     assert.equal(troopKeyLabels.includes(label), true, `missing troop key label ${label}`);
   }
+
+  const deploymentZoneCalls = element(harness, "game").getContext().calls
+    .filter((call) => call.type === "fillRect");
+  assert.ok(
+    deploymentZoneCalls.some((call) => call.fillStyle === "rgba(42, 153, 118, 0.20)"),
+    "raid rendering shows deployable cells",
+  );
+  assert.ok(
+    deploymentZoneCalls.some((call) => call.fillStyle === "rgba(224, 91, 85, 0.22)"),
+    "raid rendering shows building exclusion buffers",
+  );
+  assert.equal(
+    element(harness, "game").getContext().calls.some(
+      (call) => call.type === "strokeRect" && call.strokeStyle === "#e56f51",
+    ),
+    false,
+    "raid rendering no longer shows the obsolete perimeter border",
+  );
 
   const labels = element(harness, "network").getContext().calls
     .filter((call) => call.type === "fillText")
